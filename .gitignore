@@ -33,25 +33,20 @@ env/
 .env/
 pip-log.txt
 
-# AI/ML model weights (large files - store separately or use Git LFS)
+# AI/ML model weights
 *.pt
+!yolov8n.pt
 *.pth
 *.weights
 *.onnx
 *.h5
 
-# Large video/media files
-*.mp4
+# Media & Assets Whitelist
+!e-mobility-admin/public/**
+!e-mobility-admin/src/assets/**
+!public/**
+!camera_*.mp4
 !expressway_traffic.mp4
-*.avi
-*.mov
-*.mkv
-*.webm
-*.jpg
-*.jpeg
-*.png
-!public/
-!e-mobility-admin/src/assets/
 
 # Secure data & uploads
 backend/data/secure_photos/
