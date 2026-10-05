@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { vehicleController } from '../controllers/vehicle.controller.js';
+import { requireAuth } from '../middleware/auth.middleware.js';
 
 const router = Router();
 
@@ -7,8 +8,8 @@ const router = Router();
 router.get('/lookup/:plate', vehicleController.lookup);
 router.get('/lookup', vehicleController.lookup);
 
-// Citizen Vehicle Management
-router.get('/', vehicleController.getAll);
-router.post('/', vehicleController.addVehicle);
+// Vehicle Management (Protected)
+router.get('/', requireAuth, vehicleController.getAll);
+router.post('/', requireAuth, vehicleController.addVehicle);
 
 export default router;

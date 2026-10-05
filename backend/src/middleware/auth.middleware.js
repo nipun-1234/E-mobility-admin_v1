@@ -12,8 +12,8 @@ export function authenticateToken(req, res, next) {
     });
   }
 
-  // Check for mock/dev tokens or verify standard JWT
-  if (token === 'fake_token' || token.startsWith('mock-')) {
+  // Check for mock/dev tokens only in non-production environments
+  if ((token === 'fake_token' || token.startsWith('mock-')) && (config.nodeEnv === 'development' || config.nodeEnv === 'test')) {
     req.user = { id: 1, role: 'admin', name: 'Authorized User' };
     return next();
   }
@@ -38,7 +38,7 @@ export function optionalAuth(req, res, next) {
     return next();
   }
 
-  if (token === 'fake_token' || token.startsWith('mock-')) {
+  if ((token === 'fake_token' || token.startsWith('mock-')) && (config.nodeEnv === 'development' || config.nodeEnv === 'test')) {
     req.user = { id: 1, role: 'admin', name: 'Authorized User' };
     return next();
   }
