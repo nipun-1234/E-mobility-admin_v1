@@ -39,7 +39,7 @@ CAMERA_MAP = {
     'cam_04': {'file': 'camera_04_feed.mp4', 'fallback': 'expressway_traffic.mp4', 'name': 'Cam-04 (Central Expy Km 22.1)', 'location': 'Mirigama Interchange'},
     'cam_05': {'file': 'camera_05_feed.mp4', 'fallback': 'expressway_traffic.mp4', 'name': 'Cam-05 (Southern Expy Km 34.8)', 'location': 'Dodangoda Interchange'},
     'cam_06': {'file': 'camera_06_feed.mp4', 'fallback': 'expressway_traffic.mp4', 'name': 'Cam-06 (Outer Circular Km 8.1)', 'location': 'Kaduwela Interchange'},
-    'cam_07': {'file': 'camera_01_feed.mp4', 'fallback': 'expressway_traffic.mp4', 'name': 'Cam-07 (Katunayake Expy Km 19.4)', 'location': 'Ja-Ela Interchange'},
+    'cam_07': {'file': 'camera_07_feed.mp4', 'fallback': 'expressway_traffic.mp4', 'name': 'Cam-07 (Katunayake Expy Km 19.4)', 'location': 'Ja-Ela Interchange'},
     'cam_08': {'file': 'camera_08_feed.mp4', 'fallback': 'expressway_traffic.mp4', 'name': 'Cam-08 (Central Expy Km 39.5)', 'location': 'Kurunegala Interchange'},
 }
 
@@ -96,14 +96,6 @@ class CameraStreamWorker:
         has_initial_frame = False
 
         while self.running:
-            with self.lock:
-                current_viewers = self.viewers_count
-
-            # If no viewers, sleep to prevent CPU starvation across multiple cameras
-            if current_viewers == 0 and has_initial_frame:
-                time.sleep(0.15)
-                continue
-
             t0 = time.time()
             success, frame = cap.read()
             if not success:
@@ -132,7 +124,7 @@ class CameraStreamWorker:
             self.inference_latency_ms = round((time.time() - inf_start) * 1000, 1)
             
             # Fast JPEG Encoding
-            ret, buffer = cv2.imencode('.jpg', annotated_frame, [cv2.IMWRITE_JPEG_QUALITY, 72])
+            ret, buffer = cv2.imencode('.jpg', annotated_frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
             if ret:
                 jpeg_bytes = buffer.tobytes()
                 with self.lock:
@@ -216,14 +208,18 @@ def generate_mjpeg_stream(cam_id="cam_01"):
     worker = get_worker(cam_id)
     worker.add_viewer()
     try:
-        last_bytes = None
+        # Wait up to 3 seconds for initial frame
+        for _ in range(30):
+            if worker.get_jpeg() is not None:
+                break
+            time.sleep(0.1)
+
         while True:
             jpeg_bytes = worker.get_jpeg()
-            if jpeg_bytes is not None and jpeg_bytes != last_bytes:
-                last_bytes = jpeg_bytes
+            if jpeg_bytes is not None:
                 yield (b'--frame\r\n'
                        b'Content-Type: image/jpeg\r\n\r\n' + jpeg_bytes + b'\r\n')
-            time.sleep(0.03)
+            time.sleep(0.04)
     finally:
         worker.remove_viewer()
 
@@ -472,8 +468,8 @@ def get_camera_health():
     return jsonify({'cameras': health_list})
 
 if __name__ == '__main__':
-    # Initialize visible grid cameras on startup (cam_01 to cam_04)
-    for cid in ['cam_01', 'cam_02', 'cam_03', 'cam_04']:
+    # Pre-warm all 8 calibrated expressway cameras on startup
+    for cid in list(CAMERA_MAP.keys()):
         get_worker(cid)
 
     port = int(os.environ.get('PORT', 8000))

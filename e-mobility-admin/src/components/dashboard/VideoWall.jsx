@@ -10,13 +10,16 @@ import {
   Tv,
   Eye,
   Layers,
-  ChevronRight
+  ChevronRight,
+  Plus,
+  Camera
 } from 'lucide-react';
 
 export default function VideoWall({
   cameras = [],
   onInspectCamera,
   onCalibrateCamera,
+  onAddCamera,
   aiServerUrl = AI_SERVER_URL,
   isDarkMode = true
 }) {
@@ -44,7 +47,7 @@ export default function VideoWall({
               ? 'bg-cyan-500/10 border-cyan-500/20 text-cyan-400' 
               : 'bg-cyan-50 border-cyan-200 text-cyan-700'
           }`}>
-            8 Synchronized HD Channels
+            {cameras.length} Active Channels
           </span>
         </div>
 
@@ -58,10 +61,10 @@ export default function VideoWall({
                 ? 'bg-cyan-600 text-white shadow-sm'
                 : isDarkMode ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
               }`}
-            title="8-Node Matrix Grid"
+            title="Surveillance Grid"
           >
             <Grid className="w-3.5 h-3.5" />
-            <span>8-Grid</span>
+            <span>Grid View</span>
           </button>
 
           <button
@@ -70,7 +73,7 @@ export default function VideoWall({
                 ? 'bg-cyan-600 text-white shadow-sm'
                 : isDarkMode ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
               }`}
-            title="Command Stage (1 Primary + 7 Thumbnails)"
+            title="Command Stage (1 Primary + Thumbnails)"
           >
             <Layout className="w-3.5 h-3.5" />
             <span>Command Stage</span>
@@ -91,7 +94,7 @@ export default function VideoWall({
       </div>
 
       {/* ------------------------------------------------------------- */}
-      {/* LAYOUT 1: STANDARD 8-NODE GRID (2x4) */}
+      {/* LAYOUT 1: STANDARD MULTI-NODE GRID */}
       {/* ------------------------------------------------------------- */}
       {layoutMode === 'grid' && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -111,6 +114,48 @@ export default function VideoWall({
               aiServerUrl={aiServerUrl}
             />
           ))}
+
+          {/* Dynamic "+ Add Cameras" Action Slot */}
+          {onAddCamera && (
+            <button
+              onClick={onAddCamera}
+              type="button"
+              className={`group relative border-2 border-dashed rounded-2xl p-5 flex flex-col items-center justify-center text-center transition-all duration-300 min-h-[220px] ${
+                isDarkMode
+                  ? 'bg-slate-900/40 border-slate-800 hover:border-cyan-500 hover:bg-slate-900/80 shadow-lg hover:shadow-cyan-500/10'
+                  : 'bg-slate-50/70 border-slate-300 hover:border-cyan-600 hover:bg-white shadow-sm hover:shadow-md'
+              }`}
+            >
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-3 transition-all duration-300 group-hover:scale-110 ${
+                isDarkMode
+                  ? 'bg-cyan-500/10 text-cyan-400 group-hover:bg-cyan-500 group-hover:text-white border border-cyan-500/30 group-hover:shadow-lg group-hover:shadow-cyan-500/30'
+                  : 'bg-cyan-50 text-cyan-600 group-hover:bg-cyan-600 group-hover:text-white border border-cyan-200'
+              }`}>
+                <Plus className="w-6 h-6 stroke-[2.5]" />
+              </div>
+              
+              <span className={`text-xs font-bold uppercase tracking-wider mb-1 transition-colors ${
+                isDarkMode ? 'text-slate-200 group-hover:text-cyan-400' : 'text-slate-800 group-hover:text-cyan-700'
+              }`}>
+                Add Cameras
+              </span>
+              
+              <p className={`text-[11px] leading-relaxed max-w-[180px] ${
+                isDarkMode ? 'text-slate-400' : 'text-slate-500'
+              }`}>
+                Deploy new CCTV stream or live RTSP optical node
+              </p>
+
+              <div className={`mt-3.5 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-semibold border transition-colors ${
+                isDarkMode 
+                  ? 'bg-slate-950 border-slate-800 text-slate-300 group-hover:border-cyan-500/40 group-hover:text-cyan-300' 
+                  : 'bg-slate-100 border-slate-200 text-slate-700 group-hover:border-cyan-300 group-hover:text-cyan-800'
+              }`}>
+                <Camera className="w-3 h-3" />
+                <span>+ Deploy Slot {cameras.length + 1}</span>
+              </div>
+            </button>
+          )}
         </div>
       )}
 
@@ -174,37 +219,47 @@ export default function VideoWall({
             }`}>
               Select Stream to Stage
             </div>
-            {cameras.map((c) => (
-              <button
-                key={c.camId}
-                onClick={() => setPrimaryCamId(c.camId)}
-                className={`w-full text-left p-2 rounded-xl border transition-all flex items-center space-x-2.5 ${
-                  c.camId === primaryCamId
-                    ? isDarkMode
-                      ? 'bg-cyan-950/50 border-cyan-500/80 shadow-md shadow-cyan-500/20 text-white'
-                      : 'bg-cyan-50 border-cyan-400 shadow-sm text-cyan-900'
-                    : isDarkMode
-                      ? 'bg-slate-900/80 border-slate-800 hover:bg-slate-800/80 text-slate-200'
-                      : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-800'
-                }`}
-              >
-                <div className="w-16 aspect-video bg-black rounded-lg overflow-hidden flex-shrink-0 relative">
-                  <img
-                    src={`${aiServerUrl}/video_feed/${c.camId}`}
-                    alt={c.name}
-                    className="w-full h-full object-cover opacity-80"
-                  />
-                  <span className="absolute bottom-0.5 right-0.5 text-[8px] font-mono px-1 rounded bg-black/80 text-white">
-                    {c.camId.toUpperCase()}
-                  </span>
-                </div>
-                <div className="truncate flex-1">
-                  <div className={`text-xs font-bold truncate ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{c.name}</div>
-                  <div className={`text-[10px] truncate ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{c.location}</div>
-                  <div className={`text-[10px] font-mono mt-0.5 ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>{c.activeTracks || 12} veh • {c.speedLimit} km/h</div>
-                </div>
-              </button>
-            ))}
+            {cameras.map((c) => {
+              const num = parseInt(String(c.camId).replace('cam_', ''), 10) || 1;
+              const effectiveThumbUrl = (aiServerUrl.includes('localhost:8000') && num >= 5)
+                ? aiServerUrl.replace('localhost:8000', '127.0.0.1:8000')
+                : aiServerUrl;
+
+              return (
+                <button
+                  key={c.camId}
+                  onClick={() => setPrimaryCamId(c.camId)}
+                  className={`w-full text-left p-2 rounded-xl border transition-all flex items-center space-x-2.5 ${
+                    c.camId === primaryCamId
+                      ? isDarkMode
+                        ? 'bg-cyan-950/50 border-cyan-500/80 shadow-md shadow-cyan-500/20 text-white'
+                        : 'bg-cyan-50 border-cyan-400 shadow-sm text-cyan-900'
+                      : isDarkMode
+                        ? 'bg-slate-900/80 border-slate-800 hover:bg-slate-800/80 text-slate-200'
+                        : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-800'
+                  }`}
+                >
+                  <div className="w-16 aspect-video bg-black rounded-lg overflow-hidden flex-shrink-0 relative">
+                    <img
+                      src={`${effectiveThumbUrl}/video_feed/${c.camId}`}
+                      alt={c.name}
+                      className="w-full h-full object-cover opacity-80"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                      }}
+                    />
+                    <span className="absolute bottom-0.5 right-0.5 text-[8px] font-mono px-1 rounded bg-black/80 text-white">
+                      {c.camId.toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="truncate flex-1">
+                    <div className={`text-xs font-bold truncate ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{c.name}</div>
+                    <div className={`text-[10px] truncate ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{c.location}</div>
+                    <div className={`text-[10px] font-mono mt-0.5 ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>{c.activeTracks || 12} veh • {c.speedLimit} km/h</div>
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </div>
       )}

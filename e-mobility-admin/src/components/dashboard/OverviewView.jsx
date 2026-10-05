@@ -14,6 +14,7 @@ export default function OverviewView({
   isDarkMode = true,
   onInspectCamera,
   onCalibrateCamera,
+  onAddCamera,
   onSelectViolation,
   onDispatchPatrol,
   onAcknowledgeIncident,
@@ -39,6 +40,7 @@ export default function OverviewView({
             isDarkMode={isDarkMode}
             onInspectCamera={onInspectCamera}
             onCalibrateCamera={onCalibrateCamera}
+            onAddCamera={onAddCamera}
             aiServerUrl={aiServerUrl}
           />
 

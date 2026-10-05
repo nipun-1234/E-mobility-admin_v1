@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Maximize2, Sliders, ShieldCheck, AlertTriangle, Zap, Radio } from 'lucide-react';
 import { AI_SERVER_URL } from '../../config/env';
 
@@ -16,7 +16,31 @@ export default function CameraCard({
   isDarkMode = true
 }) {
   const [imgError, setImgError] = useState(false);
-  const streamUrl = `${aiServerUrl}/video_feed/${camId}`;
+  const [retryKey, setRetryKey] = useState(0);
+  const numId = String(camId).replace('cam_', '').padStart(2, '0');
+  const camNum = parseInt(numId, 10) || 1;
+
+  // Domain sharding between localhost and 127.0.0.1 to avoid Chrome/Edge 6 concurrent connection bottleneck
+  const effectiveBaseUrl = (aiServerUrl.includes('localhost:8000') && camNum >= 5)
+    ? aiServerUrl.replace('localhost:8000', '127.0.0.1:8000')
+    : (aiServerUrl.includes('127.0.0.1:8000') && camNum >= 5)
+    ? aiServerUrl.replace('127.0.0.1:8000', 'localhost:8000')
+    : aiServerUrl;
+
+  const streamUrl = `${effectiveBaseUrl}/video_feed/${camId}?t=${retryKey}`;
+  const fallbackVideoUrl = `/camera_${numId}_feed.mp4`;
+
+  // Auto retry connection every 2 seconds if stream temporarily drops
+  useEffect(() => {
+    let timer;
+    if (imgError) {
+      timer = setTimeout(() => {
+        setRetryKey(k => k + 1);
+        setImgError(false);
+      }, 2000);
+    }
+    return () => clearTimeout(timer);
+  }, [imgError]);
 
   return (
     <div className={`border rounded-2xl overflow-hidden transition-all duration-300 flex flex-col group relative ${
@@ -79,24 +103,32 @@ export default function CameraCard({
       >
         {!imgError ? (
           <img
+            key={`${camId}-${retryKey}`}
             src={streamUrl}
             alt={`${name} Live Stream`}
             className="w-full h-full object-cover select-none"
             onError={() => setImgError(true)}
           />
         ) : (
-          <div className="flex flex-col items-center justify-center text-slate-500 text-xs gap-2 p-4 text-center">
-            <Radio className="w-8 h-8 text-slate-600 animate-pulse" />
-            <span>Connecting to {name} Stream...</span>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setImgError(false);
+          <div className="w-full h-full relative">
+            <video
+              key={`vid-${camId}`}
+              src={fallbackVideoUrl}
+              autoPlay
+              loop
+              muted
+              playsInline
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                if (!e.target.src.includes('expressway_traffic.mp4')) {
+                  e.target.src = '/expressway_traffic.mp4';
+                }
               }}
-              className="mt-1 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-cyan-400 rounded text-[11px]"
-            >
-              Retry Feed
-            </button>
+            />
+            <div className="absolute top-2 left-2 bg-black/70 backdrop-blur px-2 py-0.5 rounded text-[10px] text-amber-300 font-mono flex items-center gap-1">
+              <Radio className="w-3 h-3 animate-pulse text-amber-400" />
+              <span>Standby Sync Feed</span>
+            </div>
           </div>
         )}
 

@@ -58,6 +58,7 @@ import OverviewView from './components/dashboard/OverviewView';
 import LiveViolationsTab from './components/dashboard/LiveViolationsTab';
 import AIDiagnosticsTab from './components/dashboard/AIDiagnosticsTab';
 import SingleCameraModal from './components/dashboard/SingleCameraModal';
+import AddCameraModal from './components/dashboard/AddCameraModal';
 import CalibrationModal from './components/dashboard/CalibrationModal';
 import SpeedViolationAuditTab from './components/dashboard/SpeedViolationAuditTab';
 
@@ -136,6 +137,7 @@ export default function App() {
   const [realtimeStatus, setRealtimeStatus] = useState('CONNECTED_WS');
   const [inspectingCamId, setInspectingCamId] = useState(null);
   const [calibratingCamId, setCalibratingCamId] = useState(null);
+  const [isAddCameraModalOpen, setIsAddCameraModalOpen] = useState(false);
 
   // User Management State (Synced with Shared Backend)
   const [usersList, setUsersList] = useState([]);
@@ -156,7 +158,6 @@ export default function App() {
     { id: 5, camId: 'cam_05', name: 'Cam-05 (Southern Expy Km 34.8)', location: 'Dodangoda Interchange', speedLimit: 100, accuracy: 98.2, status: 'Online', activeTracks: 15 },
     { id: 6, camId: 'cam_06', name: 'Cam-06 (Outer Circular Km 8.1)', location: 'Kaduwela Interchange', speedLimit: 100, accuracy: 97.9, status: 'Online', activeTracks: 18 },
     { id: 7, camId: 'cam_07', name: 'Cam-07 (Katunayake Expy Km 19.4)', location: 'Ja-Ela Interchange', speedLimit: 100, accuracy: 99.0, status: 'Online', activeTracks: 12 },
-    { id: 8, camId: 'cam_08', name: 'Cam-08 (Central Expy Km 39.5)', location: 'Kurunegala Interchange', speedLimit: 100, accuracy: 98.8, status: 'Online', activeTracks: 16 },
   ]);
 
   // Violations List (Rolling Radar)
@@ -454,6 +455,7 @@ export default function App() {
               isDarkMode={isDarkMode}
               onInspectCamera={(cid) => setInspectingCamId(cid)}
               onCalibrateCamera={(cid) => setCalibratingCamId(cid)}
+              onAddCamera={() => setIsAddCameraModalOpen(true)}
               onSelectViolation={(v) => setSelectedViolation(v)}
               onDispatchPatrol={(inc) => addNotification('Patrol Dispatched', `Highway unit assigned to ${inc.camera_id?.toUpperCase()} - ${inc.lane || 'Lane 2'}`, 'success')}
               onAcknowledgeIncident={(inc) => setActiveIncidents(prev => prev.filter(i => i.track_id !== inc.track_id))}
@@ -469,6 +471,7 @@ export default function App() {
               isDarkMode={isDarkMode}
               onInspectCamera={(cid) => setInspectingCamId(cid)}
               onCalibrateCamera={(cid) => setCalibratingCamId(cid)}
+              onAddCamera={() => setIsAddCameraModalOpen(true)}
             />
           )}
 
@@ -615,6 +618,20 @@ export default function App() {
           }}
         />
       )}
+
+      {/* ------------------------------------------------------------- */}
+      {/* ADD CCTV CAMERA MODAL */}
+      {/* ------------------------------------------------------------- */}
+      <AddCameraModal
+        isOpen={isAddCameraModalOpen}
+        onClose={() => setIsAddCameraModalOpen(false)}
+        existingCamerasCount={cameras.length}
+        isDarkMode={isDarkMode}
+        onAddCamera={(newCam) => {
+          setCameras(prev => [...prev, newCam]);
+          addNotification('Camera Deployed', `${newCam.name} successfully connected to surveillance grid`, 'success');
+        }}
+      />
 
       {/* ------------------------------------------------------------- */}
       {/* VIOLATION CASE INVESTIGATION MODAL */}

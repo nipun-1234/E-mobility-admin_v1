@@ -12,7 +12,31 @@ export default function SingleCameraModal({
 }) {
   const [zoomLevel, setZoomLevel] = useState(1);
   const [activeTab, setActiveTab] = useState('telemetry');
-  const streamUrl = `${aiServerUrl}/video_feed/${camId}`;
+  const [imgError, setImgError] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
+
+  const numId = String(camId || 'cam_01').replace('cam_', '').padStart(2, '0');
+  const camNum = parseInt(numId, 10) || 1;
+  const effectiveBaseUrl = (aiServerUrl.includes('localhost:8000') && camNum >= 5)
+    ? aiServerUrl.replace('localhost:8000', '127.0.0.1:8000')
+    : (aiServerUrl.includes('127.0.0.1:8000') && camNum >= 5)
+    ? aiServerUrl.replace('127.0.0.1:8000', 'localhost:8000')
+    : aiServerUrl;
+
+  const streamUrl = `${effectiveBaseUrl}/video_feed/${camId}?t=${retryKey}`;
+  const fallbackVideoUrl = `/camera_${numId}_feed.mp4`;
+
+  // Auto retry connection every 2 seconds if stream temporarily drops
+  useEffect(() => {
+    let timer;
+    if (imgError) {
+      timer = setTimeout(() => {
+        setRetryKey(k => k + 1);
+        setImgError(false);
+      }, 2000);
+    }
+    return () => clearTimeout(timer);
+  }, [imgError]);
 
   if (!camId) return null;
 
@@ -80,11 +104,30 @@ export default function SingleCameraModal({
               className="w-full h-full flex items-center justify-center transition-transform duration-200"
               style={{ transform: `scale(${zoomLevel})` }}
             >
-              <img
-                src={streamUrl}
-                alt={`${camId} HD Stream`}
-                className="w-full h-full object-contain select-none"
-              />
+              {!imgError ? (
+                <img
+                  key={`${camId}-${retryKey}`}
+                  src={streamUrl}
+                  alt={`${camId} HD Stream`}
+                  className="w-full h-full object-contain select-none"
+                  onError={() => setImgError(true)}
+                />
+              ) : (
+                <video
+                  key={`modal-vid-${camId}`}
+                  src={fallbackVideoUrl}
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  className="w-full h-full object-contain"
+                  onError={(e) => {
+                    if (!e.target.src.includes('expressway_traffic.mp4')) {
+                      e.target.src = '/expressway_traffic.mp4';
+                    }
+                  }}
+                />
+              )}
             </div>
 
             {/* Video Floating Controls */}
