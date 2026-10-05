@@ -12,8 +12,13 @@ export function authenticateToken(req, res, next) {
     });
   }
 
-  // Check for mock/dev tokens only in non-production environments
-  if ((token === 'fake_token' || token.startsWith('mock-')) && (config.nodeEnv === 'development' || config.nodeEnv === 'test')) {
+  // Check for mock/dev tokens ONLY when explicitly enabled in local development or test environments.
+  // Defaults to secure production behavior if NODE_ENV is unset or undefined.
+  const isExplicitDevMockAllowed =
+    process.env.ALLOW_DEV_MOCK_TOKENS === 'true' &&
+    (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test');
+
+  if (isExplicitDevMockAllowed && (token === 'fake_token' || token.startsWith('mock-'))) {
     req.user = { id: 1, role: 'admin', name: 'Authorized User' };
     return next();
   }
@@ -38,7 +43,11 @@ export function optionalAuth(req, res, next) {
     return next();
   }
 
-  if ((token === 'fake_token' || token.startsWith('mock-')) && (config.nodeEnv === 'development' || config.nodeEnv === 'test')) {
+  const isExplicitDevMockAllowed =
+    process.env.ALLOW_DEV_MOCK_TOKENS === 'true' &&
+    (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test');
+
+  if (isExplicitDevMockAllowed && (token === 'fake_token' || token.startsWith('mock-'))) {
     req.user = { id: 1, role: 'admin', name: 'Authorized User' };
     return next();
   }
