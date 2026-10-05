@@ -141,7 +141,7 @@ export default function TacticalTopBar({
   ];
 
   return (
-    <header className={`h-14 px-4 border-b flex items-center justify-between z-30 select-none backdrop-blur-md transition-colors ${
+    <header className={`h-14 px-4 border-b flex items-center justify-between z-40 select-none backdrop-blur-md transition-colors ${
       isDarkMode
         ? 'bg-slate-950/90 border-slate-800/90 text-slate-100'
         : 'bg-white/95 border-slate-200 text-slate-800 shadow-sm'
@@ -184,8 +184,8 @@ export default function TacticalTopBar({
           </button>
 
           {isCorridorDropdownOpen && (
-            <div className={`absolute top-full left-0 mt-1.5 w-80 rounded-xl shadow-2xl p-1.5 space-y-1 z-50 border animate-in fade-in zoom-in-95 duration-150 ${
-              isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200 shadow-xl'
+            <div className={`absolute top-full left-0 mt-1.5 w-80 rounded-xl shadow-2xl p-1.5 space-y-1 z-[100] border animate-in fade-in zoom-in-95 duration-150 ${
+              isDarkMode ? 'bg-[#0b1322] border-slate-700 shadow-2xl shadow-black' : 'bg-white border-slate-200 shadow-xl'
             }`}>
               <div className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${
                 isDarkMode ? 'text-slate-400' : 'text-slate-500'
@@ -335,29 +335,29 @@ export default function TacticalTopBar({
 
           {isNotificationOpen && (
             <div
-              className={`absolute top-full right-0 mt-2 w-[340px] sm:w-[410px] rounded-2xl shadow-2xl border z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150 ${
+              className={`absolute top-full right-0 mt-2 w-[340px] sm:w-[420px] rounded-2xl shadow-2xl border z-[100] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150 ${
                 isDarkMode
-                  ? 'bg-slate-950/98 backdrop-blur-2xl border-slate-800 text-slate-100 shadow-2xl shadow-black'
-                  : 'bg-white/98 backdrop-blur-2xl border-slate-200 text-slate-800 shadow-2xl shadow-slate-400/30'
+                  ? 'bg-[#0b1322] border-slate-700/80 text-slate-100 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.95),0_0_0_1px_rgba(255,255,255,0.06)]'
+                  : 'bg-white border-slate-200 text-slate-800 shadow-[0_25px_60px_-15px_rgba(15,23,42,0.25),0_0_0_1px_rgba(0,0,0,0.05)]'
               }`}
             >
               {/* Header */}
               <div className={`p-3.5 px-4 border-b flex items-center justify-between gap-2 ${
-                isDarkMode ? 'border-slate-800/80 bg-slate-900/70' : 'border-slate-100 bg-slate-50/90'
+                isDarkMode ? 'border-slate-800 bg-[#0f192c]' : 'border-slate-200 bg-slate-50'
               }`}>
                 <div className="flex items-center space-x-2 min-w-0">
-                  <div className="p-1 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 flex-shrink-0">
+                  <div className="p-1.5 rounded-lg bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 flex-shrink-0">
                     <Bell className="w-3.5 h-3.5" />
                   </div>
                   <span className={`text-xs font-extrabold tracking-tight truncate ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                     Special Notifications
                   </span>
                   {unreadCount > 0 ? (
-                    <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black bg-rose-500/15 text-rose-400 border border-rose-500/30 flex-shrink-0">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-500/20 text-rose-400 border border-rose-500/30 flex-shrink-0">
                       {unreadCount} unread
                     </span>
                   ) : (
-                    <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 flex-shrink-0">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex-shrink-0">
                       Up to date
                     </span>
                   )}
@@ -379,16 +379,18 @@ export default function TacticalTopBar({
               </div>
 
               {/* Notification List */}
-              <div className="max-h-[380px] overflow-y-auto divide-y divide-slate-800/40 divide-dashed select-text">
+              <div className={`max-h-[380px] overflow-y-auto divide-y select-text ${
+                isDarkMode ? 'divide-slate-800/80 bg-[#0b1322]' : 'divide-slate-100 bg-white'
+              }`}>
                 {notifications.length === 0 ? (
                   <div className="py-12 px-4 text-center">
-                    <div className="w-10 h-10 rounded-full bg-slate-800/50 text-slate-500 flex items-center justify-center mx-auto mb-2.5">
+                    <div className="w-10 h-10 rounded-full bg-slate-800/80 text-slate-400 flex items-center justify-center mx-auto mb-2.5">
                       <Bell className="w-5 h-5" />
                     </div>
-                    <p className={`text-xs font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+                    <p className={`text-xs font-semibold ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>
                       No notifications
                     </p>
-                    <p className={`text-[11px] mt-0.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                    <p className={`text-[11px] mt-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
                       Highway telemetry and AI speed monitoring operating normally.
                     </p>
                   </div>
@@ -410,11 +412,11 @@ export default function TacticalTopBar({
                         className={`p-3 px-3.5 flex items-start gap-3 cursor-pointer transition-all duration-150 group relative ${
                           isUnread
                             ? isDarkMode
-                              ? 'bg-slate-900/60 hover:bg-slate-800/80'
-                              : 'bg-cyan-50/40 hover:bg-cyan-100/50'
+                              ? 'bg-[#131f37] hover:bg-[#182744]'
+                              : 'bg-sky-50/75 hover:bg-sky-100/80'
                             : isDarkMode
-                            ? 'hover:bg-slate-900/50 opacity-80 hover:opacity-100'
-                            : 'hover:bg-slate-50 opacity-85 hover:opacity-100'
+                            ? 'bg-[#0b1322] hover:bg-[#111c30]'
+                            : 'bg-white hover:bg-slate-50'
                         }`}
                       >
                         {/* Unread Accent Bar */}
@@ -430,7 +432,7 @@ export default function TacticalTopBar({
                         {/* Text Content */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-1.5 mb-1">
-                            <span className={`text-[9px] px-1.5 py-0.2 rounded font-bold uppercase tracking-wider border ${config.pillStyle}`}>
+                            <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider border ${config.pillStyle}`}>
                               {config.badgeText}
                             </span>
                             <span className={`text-[10px] font-mono flex-shrink-0 ${
@@ -441,18 +443,22 @@ export default function TacticalTopBar({
                           </div>
 
                           <h4 className={`text-xs font-bold leading-snug truncate ${
-                            isDarkMode ? 'text-white group-hover:text-cyan-300' : 'text-slate-900 group-hover:text-cyan-700'
+                            isDarkMode 
+                              ? isUnread ? 'text-white group-hover:text-cyan-300' : 'text-slate-300 group-hover:text-white' 
+                              : isUnread ? 'text-slate-900 group-hover:text-cyan-700' : 'text-slate-700 group-hover:text-slate-900'
                           }`}>
                             {notif.title}
                           </h4>
 
                           <p className={`text-[11px] leading-relaxed line-clamp-2 mt-0.5 ${
-                            isDarkMode ? 'text-slate-400' : 'text-slate-600'
+                            isDarkMode 
+                              ? isUnread ? 'text-slate-300' : 'text-slate-400' 
+                              : isUnread ? 'text-slate-600' : 'text-slate-500'
                           }`}>
                             {notif.message}
                           </p>
 
-                          <div className="mt-1 flex items-center gap-1 text-[10px] text-cyan-500 font-semibold opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="mt-1 flex items-center gap-1 text-[10px] text-cyan-400 font-semibold opacity-0 group-hover:opacity-100 transition-opacity">
                             <span>Open {notif.targetTab || 'view'}</span>
                             <ChevronRight className="w-3 h-3" />
                           </div>
@@ -470,9 +476,9 @@ export default function TacticalTopBar({
 
               {/* Footer */}
               <div className={`p-2.5 px-4 border-t flex items-center justify-between ${
-                isDarkMode ? 'border-slate-800/80 bg-slate-900/60' : 'border-slate-100 bg-slate-50'
+                isDarkMode ? 'border-slate-800 bg-[#0f192c]' : 'border-slate-200 bg-slate-50'
               }`}>
-                <span className={`text-[10px] font-mono ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                <span className={`text-[10px] font-mono font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
                   {notifications.length} Total Alerts
                 </span>
                 <button
@@ -482,7 +488,7 @@ export default function TacticalTopBar({
                   }}
                   className={`text-xs font-bold flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all ${
                     isDarkMode
-                      ? 'bg-slate-800/80 border-slate-700 text-slate-200 hover:text-white hover:bg-slate-700 hover:border-slate-600'
+                      ? 'bg-slate-800 border-slate-700 text-slate-200 hover:text-white hover:bg-slate-700 hover:border-slate-600'
                       : 'bg-white border-slate-200 text-slate-700 hover:text-slate-900 hover:bg-slate-100'
                   }`}
                 >
