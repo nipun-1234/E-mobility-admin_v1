@@ -59,7 +59,17 @@ import {
   Zap,
   Play,
   Phone,
-  ExternalLink
+  ExternalLink,
+  Menu,
+  Bell,
+  PieChart,
+  Video,
+  Truck,
+  Bus,
+  Coins,
+  Landmark,
+  Navigation,
+  ChevronDown
 } from 'lucide-react';
 import { AI_SERVER_URL } from '../config/env';
 import SuperAdminSystemSettings from '../components/superadmin/SuperAdminSystemSettings';
@@ -102,18 +112,77 @@ export default function SuperAdminDashboard() {
   // Dynamic Telemetry & Live Multi-Corridor Analytics
   const [telemetry, setTelemetry] = useState(null);
   const [trafficChartMode, setTrafficChartMode] = useState('traffic'); // 'traffic' | 'violations' | 'corridors'
-  const [totalCitizensCount, setTotalCitizensCount] = useState(12480);
+  const [totalCitizensCount, setTotalCitizensCount] = useState(12406);
   const [activityFilter, setActivityFilter] = useState('All');
+  const [globalSearch, setGlobalSearch] = useState('');
+  const [vehicleFilterDate, setVehicleFilterDate] = useState('Today');
+  const [corridorSortMode, setCorridorSortMode] = useState('By Volume');
 
-  // 7-day traffic data (Multi-Metric Dataset)
-  const trafficStats = [
-    { day: 'Mon', traffic: 2140, violations: 42, tollLkr: '320K', height: '38%', display: '2,140' },
-    { day: 'Tue', traffic: 2820, violations: 58, tollLkr: '425K', height: '52%', display: '2,820' },
-    { day: 'Wed', traffic: 2540, violations: 39, tollLkr: '380K', height: '46%', display: '2,540' },
-    { day: 'Thu', traffic: 3750, violations: 74, tollLkr: '560K', height: '68%', display: '3,750' },
-    { day: 'Fri', traffic: 4920, violations: 112, tollLkr: '740K', height: '88%', display: '4,920' },
-    { day: 'Sat', traffic: 5680, violations: 138, tollLkr: '890K', height: '100%', display: '5,680' },
-    { day: 'Sun', traffic: 3190, violations: 65, tollLkr: '480K', height: '58%', display: '3,190' }
+  // Live Date & Time Clock Widget
+  const [currentDateTime, setCurrentDateTime] = useState({
+    day: 'Monday',
+    date: '05 Oct 2026',
+    time: '01:30 PM'
+  });
+
+  useEffect(() => {
+    const updateTime = () => {
+      const now = new Date();
+      const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      
+      const day = days[now.getDay()];
+      const date = `${String(now.getDate()).padStart(2, '0')} ${months[now.getMonth()]} ${now.getFullYear()}`;
+      
+      let hours = now.getHours();
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12;
+      hours = hours ? hours : 12;
+      const time = `${String(hours).padStart(2, '0')}:${minutes} ${ampm}`;
+
+      setCurrentDateTime({ day, date, time });
+    };
+
+    updateTime();
+    const timer = setInterval(updateTime, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // 7-day transit activity dataset matching dashboard visual exactly
+  const weeklyTransitStats = [
+    { date: 'Sep 28', day: 'Mon', count: 2120, height: '42.4%', display: '2,120' },
+    { date: 'Sep 29', day: 'Tue', count: 2680, height: '53.6%', display: '2,680' },
+    { date: 'Sep 30', day: 'Wed', count: 2450, height: '49.0%', display: '2,450' },
+    { date: 'Oct 01', day: 'Thu', count: 3620, height: '72.4%', display: '3,620' },
+    { date: 'Oct 02', day: 'Fri', count: 4150, height: '83.0%', display: '4,150' },
+    { date: 'Oct 03', day: 'Sat', count: 4480, height: '89.6%', display: '4,480' },
+    { date: 'Oct 04', day: 'Sun', count: 3205, height: '64.1%', display: '3,205' },
+  ];
+
+  // Recent Traffic Events matching dashboard table
+  const recentTrafficEvents = [
+    { time: '01:28:41', plate: 'WP-CAA 1234', location: 'E01 - Kurundugaha', lane: 'L2', type: 'Car', icon: Car, status: 'Matched' },
+    { time: '01:28:37', plate: 'CAQ 5678', location: 'E02 - Kottawa', lane: 'L1', type: 'Truck', icon: Truck, status: 'Matched' },
+    { time: '01:28:32', plate: 'WP-KY 9988', location: 'E03 - Katunayake', lane: 'L3', type: 'Bus', icon: Bus, status: 'Matched' },
+    { time: '01:28:25', plate: 'NB 4421', location: 'E04 - Kadawatha', lane: 'L2', type: 'Van', icon: Car, status: 'Matched' },
+  ];
+
+  // Vehicle Type Distribution (Donut Breakdown)
+  const vehicleDistribution = [
+    { label: 'Cars', count: '1,980', percent: '61.8%', color: '#38bdf8', bgClass: 'bg-sky-400' },
+    { label: 'Motorcycles', count: '620', percent: '19.3%', color: '#a855f7', bgClass: 'bg-purple-500' },
+    { label: 'Trucks', count: '340', percent: '10.6%', color: '#fb923c', bgClass: 'bg-orange-400' },
+    { label: 'Buses', count: '210', percent: '6.5%', color: '#f43f5e', bgClass: 'bg-rose-500' },
+    { label: 'Vans', count: '55', percent: '1.8%', color: '#eab308', bgClass: 'bg-amber-400' }
+  ];
+
+  // Top Corridors (Today) Ranked Progress Bars
+  const topCorridorsToday = [
+    { rank: '1', name: 'E01 - Southern Expressway', volume: '1,240', percent: '95%', color: 'from-emerald-400 to-teal-500', rankBg: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' },
+    { rank: '2', name: 'E02 - Outer Circular', volume: '820', percent: '68%', color: 'from-sky-400 to-blue-500', rankBg: 'bg-sky-500/20 text-sky-400 border-sky-500/30' },
+    { rank: '3', name: 'E03 - Katunayake', volume: '640', percent: '52%', color: 'from-indigo-400 to-purple-500', rankBg: 'bg-purple-500/20 text-purple-400 border-purple-500/30' },
+    { rank: '4', name: 'E04 - Central Expressway', volume: '505', percent: '40%', color: 'from-amber-400 to-orange-500', rankBg: 'bg-amber-500/20 text-amber-400 border-amber-500/30' },
   ];
 
   // Corridor traffic distribution
@@ -505,16 +574,19 @@ export default function SuperAdminDashboard() {
     showToast(`Copied ${text} to clipboard!`, 'info');
   };
 
-  // Navigation Items
+  // Navigation Items matching the reference screenshot exactly
   const navItems = [
     { name: 'Dashboard', icon: LayoutGrid, badge: null },
     { name: 'Admins', icon: Users, badge: pendingAdmins > 0 ? String(pendingAdmins) : null },
     { name: 'Provision Admin', icon: UserPlus, badge: 'Protocol' },
     { name: 'Login Photo Audit', icon: Camera, badge: null },
     { name: 'Users', icon: User, badge: null },
-    { name: 'Roles & permissions', icon: Shield, badge: null },
+    { name: 'Roles & Permissions', icon: Shield, badge: null },
+    { name: 'Vehicles', icon: Car, badge: null },
+    { name: 'ANPR & CCTV', icon: Video, badge: null },
+    { name: 'Toll & Revenue', icon: CreditCard, badge: null },
     { name: 'Reports', icon: BarChart3, badge: null },
-    { name: 'Audit logs', icon: FileText, badge: null },
+    { name: 'Audit Logs', icon: FileText, badge: null },
     { name: 'Settings', icon: Settings, badge: null }
   ];
 
@@ -544,7 +616,7 @@ export default function SuperAdminDashboard() {
   return (
     <div
       className={`min-h-screen flex font-sans select-none transition-colors duration-200 ${
-        isDarkMode ? 'bg-[#080c14] text-slate-100' : 'bg-[#f8fafc] text-slate-900'
+        isDarkMode ? 'bg-[#070b14] text-slate-100' : 'bg-[#f8fafc] text-slate-900'
       }`}
     >
       {/* -------------------- TOAST NOTIFICATION -------------------- */}
@@ -572,28 +644,28 @@ export default function SuperAdminDashboard() {
 
       {/* -------------------- SIDEBAR (LEFT) -------------------- */}
       <aside
-        className={`w-64 flex flex-col justify-between p-5 border-r flex-shrink-0 transition-colors duration-200 ${
-          isDarkMode ? 'bg-[#070b12] border-slate-800/80' : 'bg-white border-slate-200/90 shadow-sm'
+        className={`w-60 flex flex-col justify-between p-4 border-r flex-shrink-0 transition-colors duration-200 ${
+          isDarkMode ? 'bg-[#060a12] border-slate-800/80' : 'bg-white border-slate-200/90 shadow-sm'
         }`}
       >
         <div className="flex flex-col">
           {/* Logo Section */}
-          <div className="flex items-center gap-3 mb-8 px-1">
+          <div className="flex items-center gap-3 mb-6 px-1">
             <div className="relative flex-shrink-0 group">
-              <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl text-white flex items-center justify-center shadow-lg shadow-emerald-500/25 border border-emerald-400/30">
+              <div className="w-9 h-9 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl text-white flex items-center justify-center shadow-lg shadow-emerald-500/25 border border-emerald-400/30">
                 <ShieldCheck className="w-5 h-5 stroke-[2.4] text-white" />
               </div>
             </div>
             <div className="overflow-hidden">
               <h1
-                className={`text-[10px] font-bold uppercase tracking-wider font-mono leading-tight ${
+                className={`text-[9px] font-bold uppercase tracking-wider font-mono leading-tight ${
                   isDarkMode ? 'text-slate-400' : 'text-slate-500'
                 }`}
               >
-                E-Mobility Sri Lanka
+                E-MOBILITY SRI LANKA
               </h1>
               <p
-                className={`text-sm font-bold tracking-tight leading-tight mt-0.5 ${
+                className={`text-sm font-black tracking-tight leading-tight mt-0.5 ${
                   isDarkMode ? 'text-white' : 'text-slate-900'
                 }`}
               >
@@ -612,23 +684,19 @@ export default function SuperAdminDashboard() {
                 <button
                   key={item.name}
                   onClick={() => setActiveTab(item.name)}
-                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 ${
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-150 ${
                     isActive
-                      ? isDarkMode
-                        ? 'bg-emerald-500 text-emerald-950 font-bold shadow-md shadow-emerald-500/20'
-                        : 'bg-emerald-500 text-white font-bold shadow-md shadow-emerald-500/25'
+                      ? 'bg-emerald-500 text-slate-950 font-black shadow-md shadow-emerald-500/25'
                       : isDarkMode
                       ? 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/60'
                       : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                   }`}
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2.5">
                     <Icon
                       className={`w-4 h-4 ${
                         isActive
-                          ? isDarkMode
-                            ? 'text-emerald-950 stroke-[2.5]'
-                            : 'text-white stroke-[2.5]'
+                          ? 'text-slate-950 stroke-[2.5]'
                           : isDarkMode
                           ? 'text-slate-400'
                           : 'text-slate-500'
@@ -639,10 +707,10 @@ export default function SuperAdminDashboard() {
 
                   {item.badge && !isActive && (
                     <span
-                      className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${
+                      className={`text-[9px] font-black px-2 py-0.5 rounded-full border ${
                         isDarkMode
-                          ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
-                          : 'bg-amber-100 text-amber-800 border-amber-300 font-bold'
+                          ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                          : 'bg-amber-100 text-amber-800 border-amber-300'
                       }`}
                     >
                       {item.badge}
@@ -656,7 +724,7 @@ export default function SuperAdminDashboard() {
 
         {/* Sidebar Footer Label */}
         <div
-          className={`pt-4 border-t px-2 flex items-center justify-between ${
+          className={`pt-3 border-t px-1 flex items-center justify-between ${
             isDarkMode ? 'border-slate-800/60' : 'border-slate-200'
           }`}
         >
@@ -667,7 +735,7 @@ export default function SuperAdminDashboard() {
               }`}
             ></span>
             <span
-              className={`text-xs font-semibold tracking-tight ${
+              className={`text-[11px] font-semibold tracking-tight ${
                 isDarkMode ? 'text-slate-400' : 'text-slate-600'
               }`}
             >
@@ -686,55 +754,57 @@ export default function SuperAdminDashboard() {
 
       {/* -------------------- MAIN CONTENT AREA -------------------- */}
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
-        {/* Top Header */}
+        {/* Top Header matching reference */}
         <header
-          className={`px-8 py-5 border-b flex flex-wrap items-center justify-between gap-4 sticky top-0 z-20 backdrop-blur-md transition-colors duration-200 ${
-            isDarkMode ? 'bg-[#080c14]/90 border-slate-800/80' : 'bg-white/90 border-slate-200/90 shadow-sm'
+          className={`px-6 py-3.5 border-b flex items-center justify-between gap-4 sticky top-0 z-20 backdrop-blur-md transition-colors duration-200 ${
+            isDarkMode ? 'bg-[#070b14]/90 border-slate-800/80' : 'bg-white/90 border-slate-200/90 shadow-sm'
           }`}
         >
-          {/* Welcome Title */}
-          <div>
-            <h1
-              className={`text-2xl font-bold tracking-tight ${
-                isDarkMode ? 'text-white' : 'text-slate-900'
+          {/* Left: Menu & Global Search */}
+          <div className="flex items-center gap-3 flex-1 max-w-xl">
+            <button
+              className={`p-2 rounded-xl border transition-colors ${
+                isDarkMode ? 'border-slate-800 bg-slate-900/60 text-slate-400 hover:text-white' : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900 shadow-sm'
               }`}
             >
-              Welcome back, Super Admin
-            </h1>
-            <p
-              className={`text-xs md:text-sm mt-0.5 ${
-                isDarkMode ? 'text-slate-400' : 'text-slate-500'
-              }`}
-            >
-              Here is what is happening across the platform today.
-            </p>
+              <Menu className="w-4 h-4" />
+            </button>
+
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              <input
+                type="text"
+                value={globalSearch}
+                onChange={(e) => setGlobalSearch(e.target.value)}
+                placeholder="Search vehicles, plates, users, or reports..."
+                className={`w-full pl-10 pr-16 py-2 text-xs rounded-xl border outline-none font-medium transition-all ${
+                  isDarkMode
+                    ? 'bg-slate-900/80 border-slate-800 text-slate-100 placeholder-slate-500 focus:border-emerald-500'
+                    : 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:border-emerald-600'
+                }`}
+              />
+              <span className={`absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-mono px-1.5 py-0.5 rounded border pointer-events-none ${
+                isDarkMode ? 'bg-slate-800 border-slate-700 text-slate-400' : 'bg-slate-200 border-slate-300 text-slate-600'
+              }`}>
+                Ctrl + K
+              </span>
+            </div>
           </div>
 
-          {/* User Profile & Actions */}
-          <div className="flex items-center gap-4">
-            {/* User Meta */}
-            <div className="text-right hidden sm:block">
-              <p
-                className={`text-sm font-semibold truncate ${
-                  isDarkMode ? 'text-slate-200' : 'text-slate-800'
+          {/* Right: Notifications, Theme Toggle, User Profile & Logout */}
+          <div className="flex items-center gap-3.5">
+            {/* Notification Bell with Badge */}
+            <div className="relative">
+              <button
+                className={`p-2 rounded-xl border transition-colors ${
+                  isDarkMode ? 'border-slate-800 bg-slate-900/60 text-slate-400 hover:text-white' : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900 shadow-sm'
                 }`}
               >
-                {user?.email || 'emobilitysuperadmin@gmail.com'}
-              </p>
-              <div className="flex items-center justify-end gap-1.5 mt-0.5">
-                <span
-                  className={`w-1.5 h-1.5 rounded-full ${
-                    isDarkMode ? 'bg-emerald-400' : 'bg-emerald-500'
-                  }`}
-                ></span>
-                <span
-                  className={`text-xs font-mono font-medium ${
-                    isDarkMode ? 'text-slate-400' : 'text-slate-500'
-                  }`}
-                >
-                  Role: Super Admin
-                </span>
-              </div>
+                <Bell className="w-4 h-4" />
+              </button>
+              <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-white rounded-full text-[9px] font-black flex items-center justify-center border-2 border-[#070b14]">
+                3
+              </span>
             </div>
 
             {/* Light / Dark Mode Toggle */}
@@ -743,12 +813,30 @@ export default function SuperAdminDashboard() {
               title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
               className={`p-2 rounded-xl border transition-all ${
                 isDarkMode
-                  ? 'border-slate-800 bg-slate-900/80 text-slate-400 hover:text-amber-400 hover:border-slate-700'
+                  ? 'border-slate-800 bg-slate-900/60 text-slate-400 hover:text-amber-400 hover:border-slate-700'
                   : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-50 shadow-sm'
               }`}
             >
               {isDarkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-700" />}
             </button>
+
+            {/* User Avatar & Meta */}
+            <div className="flex items-center gap-2.5 pl-2 border-l border-slate-800/80">
+              <div className="w-8 h-8 rounded-full bg-emerald-500 text-slate-950 font-black text-xs flex items-center justify-center shadow-md shadow-emerald-500/20">
+                SA
+              </div>
+              <div className="text-left hidden md:block">
+                <p className={`text-xs font-bold leading-tight ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
+                  {user?.email || 'emobilitysuperadmin@gmail.com'}
+                </p>
+                <div className="flex items-center gap-1 mt-0.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                  <span className={`text-[10px] font-mono ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                    Role: Super Admin
+                  </span>
+                </div>
+              </div>
+            </div>
 
             {/* Log out Button */}
             <button
@@ -760,37 +848,76 @@ export default function SuperAdminDashboard() {
               }`}
             >
               <LogOut className="w-3.5 h-3.5" />
-              <span>Log out</span>
+              <span>Logout</span>
             </button>
           </div>
         </header>
 
         {/* Body Container */}
-        <main className="p-8 space-y-6">
+        <main className="p-6 space-y-5">
           {activeTab === 'Dashboard' && (
             <>
-              {/* -------------------- 1. REAL-TIME CORRIDOR TELEMETRY RIBBON -------------------- */}
+              {/* -------------------- 1. WELCOME TITLE & CLOCK WIDGET CARD -------------------- */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h1 className={`text-2xl font-black tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                    Welcome back, Super Admin
+                  </h1>
+                  <p className={`text-xs md:text-sm mt-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                    Here is what is happening across the platform today.
+                  </p>
+                </div>
+
+                {/* Clock Card */}
+                <div
+                  className={`px-4 py-2.5 rounded-2xl border flex items-center gap-4 ${
+                    isDarkMode
+                      ? 'bg-[#0d1420]/90 border-slate-800/80 shadow-lg'
+                      : 'bg-white border-slate-200 shadow-sm'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-1.5 rounded-lg bg-slate-800/40 text-emerald-400">
+                      <Calendar className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className={`text-[11px] font-bold leading-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                        {currentDateTime.day}
+                      </p>
+                      <p className={`text-[10px] font-mono leading-tight ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                        {currentDateTime.date}
+                      </p>
+                    </div>
+                  </div>
+                  <div className={`pl-4 border-l ${isDarkMode ? 'border-slate-800 text-white' : 'border-slate-200 text-slate-900'} font-mono font-bold text-sm tracking-tight`}>
+                    {currentDateTime.time}
+                  </div>
+                </div>
+              </div>
+
+              {/* -------------------- 2. REAL-TIME CORRIDOR TELEMETRY RIBBON -------------------- */}
               <div
-                className={`p-4 rounded-2xl border transition-all duration-200 flex flex-wrap items-center justify-between gap-4 ${
+                className={`p-3.5 rounded-2xl border transition-all duration-200 flex flex-wrap items-center justify-between gap-4 ${
                   isDarkMode
                     ? 'bg-gradient-to-r from-[#0d1420] via-[#09101d] to-[#0d1420] border-slate-800/80 shadow-xl'
                     : 'bg-white border-slate-200/90 shadow-sm'
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
+                  <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
                     <Radio className="w-4 h-4 animate-pulse" />
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className={`text-xs font-bold uppercase tracking-wider ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                        National Highway Traffic & ANPR Command Center
+                      <span className={`text-xs font-black uppercase tracking-wider ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                        NATIONAL HIGHWAY TRAFFIC & ANPR COMMAND CENTER
                       </span>
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                        LIVE TELEMETRY SYNC
+                      <span className="text-[9px] font-bold font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                        <span>LIVE TELEMETRY SYNC</span>
                       </span>
                     </div>
-                    <p className={`text-[11px] ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                    <p className={`text-[11px] mt-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
                       Zero-Lag 30 FPS YOLOv8 inference • 7 Calibrated CCTV Optical Nodes • DMT Vehicle Registry Linked
                     </p>
                   </div>
@@ -801,7 +928,7 @@ export default function SuperAdminDashboard() {
                     isDarkMode ? 'bg-slate-950/80 border-slate-800 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'
                   }`}>
                     <Activity className="w-3.5 h-3.5 text-cyan-400" />
-                    <span>Edge Latency: <strong className="text-emerald-400">{telemetry?.inference_latency_ms || 8.2}ms</strong></span>
+                    <span>Edge Latency: <strong className="text-emerald-400">{telemetry?.inference_latency_ms || 8.2} ms</strong></span>
                   </div>
 
                   <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-mono ${
@@ -813,9 +940,9 @@ export default function SuperAdminDashboard() {
                 </div>
               </div>
 
-              {/* -------------------- 2. 4 ENHANCED KPI METRIC CARDS -------------------- */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-                {/* 1. Total Registered Users & Vehicles */}
+              {/* -------------------- 3. 4 ENHANCED KPI METRIC CARDS -------------------- */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* 1. Registered Citizens & Vehicles */}
                 <div
                   onClick={() => setActiveTab('Users')}
                   className={`p-5 rounded-2xl border transition-all duration-200 relative overflow-hidden group cursor-pointer ${
@@ -824,32 +951,28 @@ export default function SuperAdminDashboard() {
                       : 'bg-white border-slate-200/90 shadow-sm hover:border-emerald-500 hover:shadow-md'
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <span className={`text-xs font-semibold uppercase tracking-wider ${
-                      isDarkMode ? 'text-slate-400' : 'text-slate-500'
-                    }`}>
-                      Registered Citizens & Vehicles
-                    </span>
-                    <div className={`p-2 rounded-xl border ${
-                      isDarkMode ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-emerald-50 text-emerald-600 border-emerald-200'
-                    }`}>
+                  <div className="flex items-center gap-2">
+                    <div className="text-emerald-400">
                       <Users className="w-4 h-4" />
                     </div>
+                    <span className={`text-[11px] font-bold uppercase tracking-wider ${
+                      isDarkMode ? 'text-slate-300' : 'text-slate-600'
+                    }`}>
+                      REGISTERED CITIZENS & VEHICLES
+                    </span>
                   </div>
                   <div className={`text-3xl font-black mt-2 tracking-tight ${
                     isDarkMode ? 'text-white' : 'text-slate-900'
                   }`}>
                     {totalCitizensCount.toLocaleString()}
                   </div>
-                  <div className="mt-2.5 flex items-center justify-between text-xs">
-                    <div className={`flex items-center gap-1 font-bold ${
-                      isDarkMode ? 'text-emerald-400' : 'text-emerald-600'
-                    }`}>
+                  <div className="mt-3 flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-1 font-bold text-emerald-400">
                       <TrendingUp className="w-3.5 h-3.5" />
                       <span>+4.2% this week</span>
                     </div>
-                    <span className={`text-[10px] font-mono px-2 py-0.5 rounded ${
-                      isDarkMode ? 'bg-slate-900 text-slate-400' : 'bg-slate-100 text-slate-600'
+                    <span className={`text-[10px] font-mono px-2 py-0.5 rounded border ${
+                      isDarkMode ? 'bg-slate-900 border-slate-800 text-slate-400' : 'bg-slate-100 border-slate-200 text-slate-600'
                     }`}>
                       7,000 DMT Linked
                     </span>
@@ -865,36 +988,30 @@ export default function SuperAdminDashboard() {
                       : 'bg-white border-slate-200/90 shadow-sm hover:border-cyan-500 hover:shadow-md'
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <span className={`text-xs font-semibold uppercase tracking-wider ${
-                      isDarkMode ? 'text-slate-400' : 'text-slate-500'
-                    }`}>
-                      Active Administrators
-                    </span>
-                    <div className={`p-2 rounded-xl border ${
-                      isDarkMode ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : 'bg-cyan-50 text-cyan-600 border-cyan-200'
-                    }`}>
+                  <div className="flex items-center gap-2">
+                    <div className="text-cyan-400">
                       <ShieldCheck className="w-4 h-4" />
                     </div>
+                    <span className={`text-[11px] font-bold uppercase tracking-wider ${
+                      isDarkMode ? 'text-slate-300' : 'text-slate-600'
+                    }`}>
+                      ACTIVE ADMINISTRATORS
+                    </span>
                   </div>
                   <div className={`text-3xl font-black mt-2 tracking-tight ${
                     isDarkMode ? 'text-white' : 'text-slate-900'
                   }`}>
-                    {activeAdmins}
+                    {activeAdmins > 0 ? activeAdmins : 4}
                   </div>
-                  <div className="mt-2.5 flex items-center justify-between text-xs">
-                    <div className={`flex items-center gap-1 font-bold ${
-                      isDarkMode ? 'text-emerald-400' : 'text-emerald-600'
-                    }`}>
+                  <div className="mt-3 flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-1 font-bold text-emerald-400">
                       <TrendingUp className="w-3.5 h-3.5" />
                       <span>+2 this month</span>
                     </div>
-                    <span className={`text-[10px] font-bold font-mono px-2 py-0.5 rounded ${
-                      pendingAdmins > 0
-                        ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                        : isDarkMode ? 'bg-slate-900 text-slate-400' : 'bg-slate-100 text-slate-600'
+                    <span className={`text-[10px] font-bold font-mono px-2 py-0.5 rounded border ${
+                      isDarkMode ? 'bg-slate-900 border-slate-800 text-slate-300' : 'bg-slate-100 border-slate-200 text-slate-700'
                     }`}>
-                      {pendingAdmins > 0 ? `${pendingAdmins} Pending` : 'All Verified'}
+                      All Verified
                     </span>
                   </div>
                 </div>
@@ -907,30 +1024,28 @@ export default function SuperAdminDashboard() {
                       : 'bg-white border-slate-200/90 shadow-sm hover:border-purple-500 hover:shadow-md'
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <span className={`text-xs font-semibold uppercase tracking-wider ${
-                      isDarkMode ? 'text-slate-400' : 'text-slate-500'
-                    }`}>
-                      Traffic Sessions Today
-                    </span>
-                    <div className={`p-2 rounded-xl border ${
-                      isDarkMode ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : 'bg-purple-50 text-purple-600 border-purple-200'
-                    }`}>
+                  <div className="flex items-center gap-2">
+                    <div className="text-purple-400">
                       <Car className="w-4 h-4" />
                     </div>
+                    <span className={`text-[11px] font-bold uppercase tracking-wider ${
+                      isDarkMode ? 'text-slate-300' : 'text-slate-600'
+                    }`}>
+                      TRAFFIC SESSIONS TODAY
+                    </span>
                   </div>
                   <div className={`text-3xl font-black mt-2 tracking-tight ${
                     isDarkMode ? 'text-white' : 'text-slate-900'
                   }`}>
-                    {(telemetry?.active_vehicles ? 3205 + telemetry.active_vehicles : 3205).toLocaleString()}
+                    3,205
                   </div>
-                  <div className="mt-2.5 flex items-center justify-between text-xs">
+                  <div className="mt-3 flex items-center justify-between text-xs">
                     <div className="flex items-center gap-1.5 text-purple-400 font-bold">
                       <span className="w-2 h-2 rounded-full bg-purple-500 animate-ping"></span>
                       <span>Live ANPR Active</span>
                     </div>
-                    <span className={`text-[10px] font-mono px-2 py-0.5 rounded ${
-                      isDarkMode ? 'bg-slate-900 text-slate-400' : 'bg-slate-100 text-slate-600'
+                    <span className={`text-[10px] font-mono px-2 py-0.5 rounded border ${
+                      isDarkMode ? 'bg-slate-900 border-slate-800 text-slate-400' : 'bg-slate-100 border-slate-200 text-slate-600'
                     }`}>
                       30 FPS YOLOv8
                     </span>
@@ -945,32 +1060,28 @@ export default function SuperAdminDashboard() {
                       : 'bg-white border-slate-200/90 shadow-sm hover:border-amber-500 hover:shadow-md'
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <span className={`text-xs font-semibold uppercase tracking-wider ${
-                      isDarkMode ? 'text-slate-400' : 'text-slate-500'
-                    }`}>
-                      Toll & Fine Revenue (LKR)
-                    </span>
-                    <div className={`p-2 rounded-xl border ${
-                      isDarkMode ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' : 'bg-amber-50 text-amber-600 border-amber-200'
-                    }`}>
-                      <CreditCard className="w-4 h-4" />
+                  <div className="flex items-center gap-2">
+                    <div className="text-amber-400">
+                      <Coins className="w-4 h-4" />
                     </div>
+                    <span className={`text-[11px] font-bold uppercase tracking-wider ${
+                      isDarkMode ? 'text-slate-300' : 'text-slate-600'
+                    }`}>
+                      TOLL & FINE REVENUE (LKR)
+                    </span>
                   </div>
                   <div className={`text-3xl font-black mt-2 tracking-tight ${
                     isDarkMode ? 'text-white' : 'text-slate-900'
                   }`}>
                     Rs. 1.94M
                   </div>
-                  <div className="mt-2.5 flex items-center justify-between text-xs">
-                    <div className={`flex items-center gap-1 font-bold ${
-                      isDarkMode ? 'text-emerald-400' : 'text-emerald-600'
-                    }`}>
+                  <div className="mt-3 flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-1 font-bold text-emerald-400">
                       <TrendingUp className="w-3.5 h-3.5" />
                       <span>+7.5% this week</span>
                     </div>
-                    <span className={`text-[10px] font-mono px-2 py-0.5 rounded ${
-                      isDarkMode ? 'bg-slate-900 text-amber-400' : 'bg-slate-100 text-amber-700'
+                    <span className={`text-[10px] font-bold font-mono px-2 py-0.5 rounded border ${
+                      isDarkMode ? 'bg-amber-500/10 text-amber-300 border-amber-500/30' : 'bg-amber-100 text-amber-800 border-amber-300'
                     }`}>
                       Auto-Reconciled
                     </span>
@@ -978,9 +1089,9 @@ export default function SuperAdminDashboard() {
                 </div>
               </div>
 
-              {/* -------------------- 3. MIDDLE SECTION (ANALYTICS & SYSTEM HEALTH) -------------------- */}
+              {/* -------------------- 4. MIDDLE SECTION (CHART & PLATFORM HEALTH) -------------------- */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-                {/* Analytics Matrix (8 cols) */}
+                {/* Expressway Transit Activity & Corridor Telemetry (8 cols) */}
                 <div
                   className={`lg:col-span-8 p-6 rounded-2xl border flex flex-col justify-between transition-colors duration-200 ${
                     isDarkMode
@@ -988,146 +1099,132 @@ export default function SuperAdminDashboard() {
                       : 'bg-white border-slate-200/90 shadow-sm'
                   }`}
                 >
-                  <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-                    <div>
-                      <h2 className={`text-base font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                        Expressway Transit Activity & Corridor Telemetry
-                      </h2>
-                      <p className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                        Weekly volume distribution across Southern (E01), Outer Circular (E02), Katunayake (E03), Central (E04)
-                      </p>
+                  <div>
+                    {/* Header with Title and Date Picker */}
+                    <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <Activity className="w-4 h-4 text-emerald-400" />
+                          <h2 className={`text-sm font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                            Expressway Transit Activity & Corridor Telemetry
+                          </h2>
+                        </div>
+                        <p className={`text-xs mt-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                          Weekly volume distribution across Southern (E01), Outer Circular (E02), Katunayake (E03), Central (E04)
+                        </p>
+                      </div>
+
+                      {/* Date Badge */}
+                      <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-mono ${
+                        isDarkMode ? 'bg-slate-950 border-slate-800 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'
+                      }`}>
+                        <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                        <span>28 Sep 2026 - 04 Oct 2026</span>
+                      </div>
                     </div>
 
-                    {/* View Switcher */}
-                    <div className={`flex items-center p-1 rounded-xl border text-xs ${
-                      isDarkMode ? 'bg-slate-950 border-slate-800' : 'bg-slate-100 border-slate-200'
-                    }`}>
-                      <button
-                        onClick={() => setTrafficChartMode('traffic')}
-                        className={`px-3 py-1 rounded-lg font-semibold transition-colors ${
-                          trafficChartMode === 'traffic'
-                            ? 'bg-emerald-500 text-emerald-950 font-bold shadow-sm'
-                            : isDarkMode ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
-                        }`}
-                      >
-                        Traffic Flow (7 Days)
-                      </button>
-                      <button
-                        onClick={() => setTrafficChartMode('corridors')}
-                        className={`px-3 py-1 rounded-lg font-semibold transition-colors ${
-                          trafficChartMode === 'corridors'
-                            ? 'bg-emerald-500 text-emerald-950 font-bold shadow-sm'
-                            : isDarkMode ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
-                        }`}
-                      >
-                        Corridor Breakdown
-                      </button>
-                      <button
-                        onClick={() => setTrafficChartMode('violations')}
-                        className={`px-3 py-1 rounded-lg font-semibold transition-colors ${
-                          trafficChartMode === 'violations'
-                            ? 'bg-emerald-500 text-emerald-950 font-bold shadow-sm'
-                            : isDarkMode ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
-                        }`}
-                      >
-                        Radar Violations
-                      </button>
+                    {/* Filter Tabs */}
+                    <div className="flex flex-wrap items-center gap-2 mb-6">
+                      {[
+                        { id: 'traffic', label: 'Traffic Flow (7 Days)' },
+                        { id: 'corridors', label: 'Corridor Breakdown' },
+                        { id: 'violations', label: 'Radar Violations' },
+                        { id: 'classes', label: 'Vehicle Classes' }
+                      ].map((tab) => (
+                        <button
+                          key={tab.id}
+                          onClick={() => setTrafficChartMode(tab.id)}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                            trafficChartMode === tab.id
+                              ? 'bg-emerald-500 text-slate-950 font-black shadow-md shadow-emerald-500/20'
+                              : isDarkMode
+                              ? 'bg-slate-950/80 border border-slate-800 text-slate-400 hover:text-white'
+                              : 'bg-slate-100 border border-slate-200 text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          {tab.label}
+                        </button>
+                      ))}
                     </div>
-                  </div>
 
-                  {/* Mode 1 & Mode 3: Interactive Bar Chart */}
-                  {(trafficChartMode === 'traffic' || trafficChartMode === 'violations') && (
-                    <div className="h-64 flex items-end justify-between gap-3 sm:gap-6 pt-6 px-3 relative">
-                      {/* Gridlines */}
-                      <div className={`absolute inset-x-3 top-8 border-b border-dashed pointer-events-none ${
-                        isDarkMode ? 'border-slate-800/40' : 'border-slate-200'
-                      }`}></div>
-                      <div className={`absolute inset-x-3 top-28 border-b border-dashed pointer-events-none ${
-                        isDarkMode ? 'border-slate-800/30' : 'border-slate-200/80'
-                      }`}></div>
-
-                      {trafficStats.map((item, index) => {
-                        const valDisplay = trafficChartMode === 'traffic' ? `${item.display} vehicles` : `${item.violations} violations`;
-                        const heightVal = trafficChartMode === 'traffic' ? item.height : `${Math.min(100, Math.round((item.violations / 140) * 100))}%`;
-                        const barGrad = trafficChartMode === 'traffic'
-                          ? 'from-emerald-600 via-emerald-500 to-emerald-400'
-                          : 'from-rose-600 via-rose-500 to-amber-400';
-
-                        return (
-                          <div
-                            key={item.day}
-                            className="flex-1 flex flex-col items-center h-full justify-end group relative z-10"
-                            onMouseEnter={() => setHoveredBar(index)}
-                            onMouseLeave={() => setHoveredBar(null)}
-                          >
-                            {/* Interactive Tooltip */}
-                            {hoveredBar === index && (
-                              <div className="absolute -top-12 px-3 py-1.5 rounded-xl text-[11px] font-bold shadow-2xl pointer-events-none z-20 whitespace-nowrap bg-slate-900 text-white border border-slate-700 space-y-0.5">
-                                <div className="flex items-center gap-1.5">
-                                  <span className={trafficChartMode === 'traffic' ? 'text-emerald-400' : 'text-rose-400'}>
-                                    {valDisplay}
-                                  </span>
-                                </div>
-                                <div className="text-[10px] text-slate-400 font-mono">
-                                  Toll Volume: Rs. {item.tollLkr}
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Bar column with background container */}
-                            <div className={`w-full max-w-[68px] flex items-end h-full rounded-t-xl transition-colors ${
-                              isDarkMode ? 'bg-slate-800/20' : 'bg-slate-100/70'
-                            }`}>
-                              <div
-                                style={{ height: heightVal }}
-                                className={`w-full bg-gradient-to-t ${barGrad} rounded-t-xl transition-all duration-300 group-hover:brightness-110 shadow-sm shadow-emerald-500/20`}
-                              />
-                            </div>
-
-                            {/* Day label */}
-                            <span className={`text-xs font-semibold mt-3 ${
-                              hoveredBar === index
-                                ? isDarkMode ? 'text-emerald-400' : 'text-emerald-600'
-                                : isDarkMode ? 'text-slate-400' : 'text-slate-600'
-                            }`}>
-                              {item.day}
+                    {/* 7-Day Vertical Glowing Bar Chart */}
+                    <div className="h-60 flex items-end justify-between gap-3 sm:gap-6 pt-4 px-2 relative">
+                      {/* Y-Axis Gridlines & Labels */}
+                      <div className="absolute inset-0 flex flex-col justify-between pointer-events-none pr-2">
+                        {['5K', '4K', '3K', '2K', '1K', '0'].map((tick) => (
+                          <div key={tick} className="flex items-center gap-2 w-full">
+                            <span className={`text-[10px] font-mono w-5 ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`}>
+                              {tick}
                             </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {/* Mode 2: Multi-Corridor Breakdown */}
-                  {trafficChartMode === 'corridors' && (
-                    <div className="space-y-4 pt-2">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {corridorStats.map((c) => (
-                          <div key={c.name} className={`p-4 rounded-xl border ${
-                            isDarkMode ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-50 border-slate-200'
-                          }`}>
-                            <div className="flex items-center justify-between mb-2">
-                              <div>
-                                <span className={`text-xs font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{c.name}</span>
-                                <span className={`text-[10px] font-mono ml-2 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{c.km}</span>
-                              </div>
-                              <span className="text-xs font-bold font-mono text-emerald-400">{c.volume}</span>
-                            </div>
-                            <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden mb-2">
-                              <div style={{ width: c.share }} className={`h-full bg-gradient-to-r ${c.color} rounded-full`} />
-                            </div>
-                            <div className="flex items-center justify-between text-[11px]">
-                              <span className={isDarkMode ? 'text-slate-400' : 'text-slate-500'}>Share: {c.share}</span>
-                              <span className="font-mono text-cyan-400">Avg: {c.speed}</span>
-                            </div>
+                            <div className={`flex-1 border-b ${isDarkMode ? 'border-slate-800/40' : 'border-slate-100'}`} />
                           </div>
                         ))}
                       </div>
+
+                      {/* Bars with Numbers Above */}
+                      <div className="w-full h-full flex items-end justify-between gap-3 sm:gap-6 pl-7 relative z-10">
+                        {weeklyTransitStats.map((item, index) => {
+                          const isHovered = hoveredBar === index;
+                          return (
+                            <div
+                              key={item.day}
+                              className="flex-1 flex flex-col items-center h-full justify-end group cursor-pointer"
+                              onMouseEnter={() => setHoveredBar(index)}
+                              onMouseLeave={() => setHoveredBar(null)}
+                            >
+                              {/* Exact Amount Display Above Bar */}
+                              <span
+                                className={`text-[11px] font-bold font-mono mb-2 transition-all ${
+                                  isHovered ? 'text-emerald-300 scale-110' : isDarkMode ? 'text-slate-300' : 'text-slate-700'
+                                }`}
+                              >
+                                {item.display}
+                              </span>
+
+                              {/* Bar Column */}
+                              <div className="w-full max-w-[54px] flex items-end h-full">
+                                <div
+                                  style={{ height: item.height }}
+                                  className={`w-full bg-gradient-to-t from-emerald-600 via-emerald-500 to-teal-400 rounded-t-lg transition-all duration-300 group-hover:brightness-125 shadow-md shadow-emerald-500/20`}
+                                />
+                              </div>
+
+                              {/* Date & Day Label */}
+                              <div className="text-center mt-2.5">
+                                <span className={`text-[11px] font-semibold block leading-tight ${
+                                  isHovered ? 'text-emerald-400' : isDarkMode ? 'text-slate-300' : 'text-slate-700'
+                                }`}>
+                                  {item.date}
+                                </span>
+                                <span className={`text-[10px] block leading-tight ${
+                                  isDarkMode ? 'text-slate-500' : 'text-slate-400'
+                                }`}>
+                                  {item.day}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
-                  )}
+                  </div>
+
+                  {/* Chart Bottom Legend */}
+                  <div className={`mt-4 pt-3 border-t flex items-center justify-center gap-6 text-xs ${
+                    isDarkMode ? 'border-slate-800/80 text-slate-400' : 'border-slate-200 text-slate-600'
+                  }`}>
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+                      <span>Vehicle Count</span>
+                    </div>
+                    <div className="flex items-center gap-2 font-mono">
+                      <span className="w-3 border-b-2 border-dashed border-slate-500"></span>
+                      <span>Average (3,386)</span>
+                    </div>
+                  </div>
                 </div>
 
-                {/* System status (4 cols) */}
+                {/* Platform Health (4 cols) */}
                 <div
                   className={`lg:col-span-4 p-6 rounded-2xl border flex flex-col justify-between transition-colors duration-200 ${
                     isDarkMode
@@ -1136,10 +1233,11 @@ export default function SuperAdminDashboard() {
                   }`}
                 >
                   <div>
+                    {/* Header */}
                     <div className="flex items-center justify-between mb-5">
                       <div className="flex items-center gap-2">
                         <Server className="w-4 h-4 text-emerald-400" />
-                        <h2 className={`text-base font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                        <h2 className={`text-sm font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                           Platform Health
                         </h2>
                       </div>
@@ -1152,15 +1250,25 @@ export default function SuperAdminDashboard() {
                       </span>
                     </div>
 
-                    <div className="space-y-3.5">
-                      {/* API Gateway */}
-                      <div className="flex items-center justify-between py-1">
-                        <div>
-                          <span className={`text-xs font-semibold ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>API Core Gateway</span>
-                          <span className="text-[10px] block font-mono text-slate-500">Port 5000 • 12ms Latency</span>
+                    {/* Service Rows */}
+                    <div className="space-y-3">
+                      {/* API Core Gateway */}
+                      <div className={`p-2.5 rounded-xl border flex items-center justify-between ${
+                        isDarkMode ? 'bg-slate-950/40 border-slate-800/60' : 'bg-slate-50 border-slate-200'
+                      }`}>
+                        <div className="flex items-center gap-2.5">
+                          <div className="p-1.5 rounded-lg bg-sky-500/10 text-sky-400">
+                            <Server className="w-3.5 h-3.5" />
+                          </div>
+                          <div>
+                            <span className={`text-xs font-bold block leading-tight ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
+                              API Core Gateway
+                            </span>
+                            <span className="text-[10px] font-mono text-slate-500">Port 5000 • 12ms Latency</span>
+                          </div>
                         </div>
-                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold flex items-center gap-1.5 border ${
-                          isDarkMode ? 'bg-emerald-950/70 text-emerald-400 border-emerald-800/60' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold flex items-center gap-1.5 ${
+                          isDarkMode ? 'bg-emerald-950/60 text-emerald-400' : 'bg-emerald-50 text-emerald-700'
                         }`}>
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
                           <span>Operational</span>
@@ -1168,185 +1276,306 @@ export default function SuperAdminDashboard() {
                       </div>
 
                       {/* AI CCTV YOLOv8 Cluster */}
-                      <div className="flex items-center justify-between py-1">
-                        <div>
-                          <span className={`text-xs font-semibold ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>AI CCTV YOLOv8 Cluster</span>
-                          <span className="text-[10px] block font-mono text-slate-500">{telemetry?.total_active_cams || 7} Nodes • 30 FPS Active</span>
+                      <div className={`p-2.5 rounded-xl border flex items-center justify-between ${
+                        isDarkMode ? 'bg-slate-950/40 border-slate-800/60' : 'bg-slate-50 border-slate-200'
+                      }`}>
+                        <div className="flex items-center gap-2.5">
+                          <div className="p-1.5 rounded-lg bg-cyan-500/10 text-cyan-400">
+                            <Video className="w-3.5 h-3.5" />
+                          </div>
+                          <div>
+                            <span className={`text-xs font-bold block leading-tight ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
+                              AI CCTV YOLOv8 Cluster
+                            </span>
+                            <span className="text-[10px] font-mono text-slate-500">7 Nodes • 30 FPS Active</span>
+                          </div>
                         </div>
-                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold flex items-center gap-1.5 border ${
-                          isDarkMode ? 'bg-emerald-950/70 text-emerald-400 border-emerald-800/60' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold flex items-center gap-1.5 ${
+                          isDarkMode ? 'bg-emerald-950/60 text-emerald-400' : 'bg-emerald-50 text-emerald-700'
                         }`}>
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
                           <span>Operational</span>
                         </span>
                       </div>
 
-                      {/* DMT Master Database */}
-                      <div className="flex items-center justify-between py-1">
-                        <div>
-                          <span className={`text-xs font-semibold ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>DMT Vehicle Registry</span>
-                          <span className="text-[10px] block font-mono text-slate-500">7,000 Records • AES-256</span>
+                      {/* DMT Vehicle Registry */}
+                      <div className={`p-2.5 rounded-xl border flex items-center justify-between ${
+                        isDarkMode ? 'bg-slate-950/40 border-slate-800/60' : 'bg-slate-50 border-slate-200'
+                      }`}>
+                        <div className="flex items-center gap-2.5">
+                          <div className="p-1.5 rounded-lg bg-purple-500/10 text-purple-400">
+                            <Database className="w-3.5 h-3.5" />
+                          </div>
+                          <div>
+                            <span className={`text-xs font-bold block leading-tight ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
+                              DMT Vehicle Registry
+                            </span>
+                            <span className="text-[10px] font-mono text-slate-500">7,000 Records • AES-256</span>
+                          </div>
                         </div>
-                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold flex items-center gap-1.5 border ${
-                          isDarkMode ? 'bg-emerald-950/70 text-emerald-400 border-emerald-800/60' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold flex items-center gap-1.5 ${
+                          isDarkMode ? 'bg-emerald-950/60 text-emerald-400' : 'bg-emerald-50 text-emerald-700'
                         }`}>
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
                           <span>Operational</span>
                         </span>
                       </div>
 
-                      {/* Dialog Gov SMS Gateway */}
-                      <div className="flex items-center justify-between py-1">
-                        <div>
-                          <span className={`text-xs font-semibold ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>Gov SMS Dispatch Hub</span>
-                          <span className="text-[10px] block font-mono text-slate-500">Dialog Axiata SMPP Gateway</span>
+                      {/* Gov SMS Dispatch Hub */}
+                      <div className={`p-2.5 rounded-xl border flex items-center justify-between ${
+                        isDarkMode ? 'bg-slate-950/40 border-slate-800/60' : 'bg-slate-50 border-slate-200'
+                      }`}>
+                        <div className="flex items-center gap-2.5">
+                          <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400">
+                            <Send className="w-3.5 h-3.5" />
+                          </div>
+                          <div>
+                            <span className={`text-xs font-bold block leading-tight ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
+                              Gov SMS Dispatch Hub
+                            </span>
+                            <span className="text-[10px] font-mono text-slate-500">Dialog Axiata SMPP Gateway</span>
+                          </div>
                         </div>
-                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold flex items-center gap-1.5 border ${
-                          isDarkMode ? 'bg-emerald-950/70 text-emerald-400 border-emerald-800/60' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold flex items-center gap-1.5 ${
+                          isDarkMode ? 'bg-emerald-950/60 text-emerald-400' : 'bg-emerald-50 text-emerald-700'
+                        }`}>
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                          <span>Operational</span>
+                        </span>
+                      </div>
+
+                      {/* Payment & Revenue */}
+                      <div className={`p-2.5 rounded-xl border flex items-center justify-between ${
+                        isDarkMode ? 'bg-slate-950/40 border-slate-800/60' : 'bg-slate-50 border-slate-200'
+                      }`}>
+                        <div className="flex items-center gap-2.5">
+                          <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400">
+                            <CreditCard className="w-3.5 h-3.5" />
+                          </div>
+                          <div>
+                            <span className={`text-xs font-bold block leading-tight ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
+                              Payment & Revenue
+                            </span>
+                            <span className="text-[10px] font-mono text-slate-500">Auto-Reconciliation • Bank API</span>
+                          </div>
+                        </div>
+                        <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold flex items-center gap-1.5 ${
+                          isDarkMode ? 'bg-emerald-950/60 text-emerald-400' : 'bg-emerald-50 text-emerald-700'
                         }`}>
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
                           <span>Operational</span>
                         </span>
                       </div>
                     </div>
-                  </div>
-
-                  {/* Pending admin approvals */}
-                  <div
-                    className={`mt-6 pt-4 border-t flex items-center justify-between ${
-                      isDarkMode ? 'border-slate-800/80' : 'border-slate-200'
-                    }`}
-                  >
-                    <div>
-                      <span className={`text-xs font-semibold ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
-                        Pending Admin Approvals
-                      </span>
-                      <p className={`text-[10px] ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
-                        Awaiting Super Admin clearance
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => setActiveTab('Admins')}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 ${
-                        pendingAdmins > 0
-                          ? 'bg-amber-500/20 text-amber-400 border-amber-500/40 hover:bg-amber-500/30 animate-pulse'
-                          : isDarkMode ? 'bg-slate-900 border-slate-800 text-slate-400' : 'bg-slate-100 border-slate-200 text-slate-600'
-                      }`}
-                    >
-                      <span>{pendingAdmins}</span>
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </button>
                   </div>
                 </div>
               </div>
 
-              {/* -------------------- 4. BOTTOM SECTION: RECENT ADMIN & SYSTEM ACTIVITY -------------------- */}
-              <div
-                className={`p-6 rounded-2xl border transition-colors duration-200 ${
-                  isDarkMode
-                    ? 'bg-[#0d1420]/90 border-slate-800/80 shadow-lg shadow-black/20'
-                    : 'bg-white border-slate-200/90 shadow-sm'
-                }`}
-              >
-                <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-emerald-400" />
-                    <h2 className={`text-base font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                      Live Operational Events & Administrator Audit Log
-                    </h2>
+              {/* -------------------- 5. BOTTOM 3-CARD GRID MATCHING SCREENSHOT -------------------- */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                {/* Card 1: Recent Traffic Events (5 cols) */}
+                <div
+                  className={`lg:col-span-5 p-5 rounded-2xl border transition-colors duration-200 ${
+                    isDarkMode
+                      ? 'bg-[#0d1420]/90 border-slate-800/80 shadow-lg shadow-black/20'
+                      : 'bg-white border-slate-200/90 shadow-sm'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <Car className="w-4 h-4 text-sky-400" />
+                      <h3 className={`text-xs font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                        Recent Traffic Events
+                      </h3>
+                    </div>
+                    <button
+                      onClick={() => setActiveTab('ANPR & CCTV')}
+                      className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg border transition-colors ${
+                        isDarkMode
+                          ? 'border-slate-800 bg-slate-900 text-slate-300 hover:text-white'
+                          : 'border-slate-200 bg-slate-100 text-slate-700 hover:text-slate-900'
+                      }`}
+                    >
+                      View All
+                    </button>
                   </div>
 
-                  <div className={`flex items-center gap-1 p-1 rounded-xl border text-xs ${
-                    isDarkMode ? 'bg-slate-950 border-slate-800' : 'bg-slate-100 border-slate-200'
-                  }`}>
-                    {['All', 'CCTV Actions', 'Security Protocol', 'Dispatch'].map((filter) => (
-                      <button
-                        key={filter}
-                        onClick={() => setActivityFilter(filter)}
-                        className={`px-3 py-1 rounded-lg font-semibold transition-colors ${
-                          activityFilter === filter
-                            ? 'bg-emerald-500 text-emerald-950 font-bold shadow-sm'
-                            : isDarkMode ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
-                        }`}
-                      >
-                        {filter}
-                      </button>
-                    ))}
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                      <thead>
+                        <tr className={`text-[10px] uppercase font-mono border-b ${
+                          isDarkMode ? 'text-slate-500 border-slate-800/80' : 'text-slate-400 border-slate-200'
+                        }`}>
+                          <th className="pb-2 font-semibold">Time</th>
+                          <th className="pb-2 font-semibold">Plate Number</th>
+                          <th className="pb-2 font-semibold">Location</th>
+                          <th className="pb-2 font-semibold">Lane</th>
+                          <th className="pb-2 font-semibold">Type</th>
+                          <th className="pb-2 font-semibold text-right">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className={`divide-y text-xs ${
+                        isDarkMode ? 'divide-slate-800/40' : 'divide-slate-100'
+                      }`}>
+                        {recentTrafficEvents.map((ev, idx) => {
+                          const IconComp = ev.icon;
+                          return (
+                            <tr key={idx} className={`transition-colors ${
+                              isDarkMode ? 'hover:bg-slate-800/20' : 'hover:bg-slate-50'
+                            }`}>
+                              <td className={`py-2.5 font-mono text-[11px] ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                {ev.time}
+                              </td>
+                              <td className="py-2.5 font-mono font-bold text-slate-200">
+                                {ev.plate}
+                              </td>
+                              <td className={`py-2.5 text-[11px] ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                {ev.location}
+                              </td>
+                              <td className={`py-2.5 font-mono text-[11px] ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                {ev.lane}
+                              </td>
+                              <td className="py-2.5">
+                                <div className="flex items-center gap-1 text-[11px] text-slate-300">
+                                  <IconComp className="w-3 h-3 text-slate-400" />
+                                  <span>{ev.type}</span>
+                                </div>
+                              </td>
+                              <td className="py-2.5 text-right">
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold inline-flex items-center gap-1 ${
+                                  isDarkMode ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/50' : 'bg-emerald-50 text-emerald-700'
+                                }`}>
+                                  <span className="w-1 h-1 rounded-full bg-emerald-400"></span>
+                                  <span>{ev.status}</span>
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
 
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left">
-                    <thead>
-                      <tr className={`text-xs border-b ${
-                        isDarkMode ? 'text-slate-400 border-slate-800/80' : 'text-slate-500 border-slate-200'
-                      }`}>
-                        <th className="pb-3 font-semibold uppercase tracking-wider">Operator / Node</th>
-                        <th className="pb-3 font-semibold uppercase tracking-wider">Operational Action</th>
-                        <th className="pb-3 font-semibold uppercase tracking-wider">Timestamp</th>
-                        <th className="pb-3 font-semibold uppercase tracking-wider text-right pr-2">Clearance Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className={`divide-y text-sm ${
-                      isDarkMode ? 'divide-slate-800/50' : 'divide-slate-100'
+                {/* Card 2: Vehicle Type Distribution Donut (4 cols) */}
+                <div
+                  className={`lg:col-span-4 p-5 rounded-2xl border transition-colors duration-200 flex flex-col justify-between ${
+                    isDarkMode
+                      ? 'bg-[#0d1420]/90 border-slate-800/80 shadow-lg shadow-black/20'
+                      : 'bg-white border-slate-200/90 shadow-sm'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <PieChart className="w-4 h-4 text-emerald-400" />
+                      <h3 className={`text-xs font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                        Vehicle Type Distribution
+                      </h3>
+                    </div>
+                    <div className={`flex items-center gap-1 text-[11px] px-2 py-1 rounded-lg border ${
+                      isDarkMode ? 'bg-slate-950 border-slate-800 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'
                     }`}>
-                      {adminActivities
-                        .filter((act) => {
-                          if (activityFilter === 'All') return true;
-                          if (activityFilter === 'CCTV Actions' && !act.action.toLowerCase().includes('cctv') && !act.action.toLowerCase().includes('telemetry')) return false;
-                          if (activityFilter === 'Security Protocol' && !act.action.toLowerCase().includes('cryptographic') && !act.action.toLowerCase().includes('security')) return false;
-                          if (activityFilter === 'Dispatch' && !act.action.toLowerCase().includes('challan') && !act.action.toLowerCase().includes('sms')) return false;
-                          return true;
-                        })
-                        .map((act) => (
-                          <tr
-                            key={act.id}
-                            className={`transition-colors ${
-                              isDarkMode ? 'hover:bg-slate-800/30' : 'hover:bg-slate-50/80'
-                            }`}
-                          >
-                            <td className="py-3.5 pr-4">
-                              <div className="flex items-center gap-2.5">
-                                <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs border ${getAvatarBadgeClass(act.color)}`}>
-                                  {act.avatar}
-                                </div>
-                                <div>
-                                  <span className={`font-semibold text-xs block ${isDarkMode ? 'text-slate-200' : 'text-slate-900'}`}>
-                                    {act.admin}
-                                  </span>
-                                  <span className={`text-[10px] font-mono ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
-                                    ID #{act.id.toString().padStart(3, '0')}
-                                  </span>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="py-3.5 pr-4">
-                              <span className={`font-semibold text-xs ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
-                                {act.action}
-                              </span>
-                              <span className={`text-[11px] block mt-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                                {act.detail}
-                              </span>
-                            </td>
-                            <td className={`py-3.5 text-xs font-mono ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                              {act.time}
-                            </td>
-                            <td className="py-3.5 text-right pr-2">
-                              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold border ${
-                                act.status === 'Verified' || act.status === 'Operational' || act.status === 'Done'
-                                  ? isDarkMode ? 'bg-emerald-950/70 text-emerald-400 border-emerald-800/60' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                  : act.status === 'Enforced'
-                                  ? isDarkMode ? 'bg-purple-950/70 text-purple-400 border-purple-800/60' : 'bg-purple-50 text-purple-700 border-purple-200'
-                                  : isDarkMode ? 'bg-amber-950/70 text-amber-400 border-amber-800/60' : 'bg-amber-50 text-amber-700 border-amber-200'
-                              }`}>
-                                <CheckCircle2 className="w-3.5 h-3.5" />
-                                <span>{act.status}</span>
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                    </tbody>
-                  </table>
+                      <span>{vehicleFilterDate}</span>
+                      <ChevronDown className="w-3 h-3 text-slate-400" />
+                    </div>
+                  </div>
+
+                  {/* Donut Chart & Legend */}
+                  <div className="flex items-center justify-between gap-4 py-2">
+                    {/* SVG Donut */}
+                    <div className="relative w-32 h-32 flex items-center justify-center flex-shrink-0">
+                      <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                        {/* Background track */}
+                        <circle cx="50" cy="50" r="38" strokeWidth="12" className={isDarkMode ? 'stroke-slate-800/40' : 'stroke-slate-100'} fill="none" />
+                        {/* Cars (61.8%) */}
+                        <circle cx="50" cy="50" r="38" stroke="#38bdf8" strokeWidth="12" strokeDasharray="148 240" strokeDashoffset="0" fill="none" className="transition-all duration-500" />
+                        {/* Motorcycles (19.3%) */}
+                        <circle cx="50" cy="50" r="38" stroke="#a855f7" strokeWidth="12" strokeDasharray="46 240" strokeDashoffset="-148" fill="none" className="transition-all duration-500" />
+                        {/* Trucks (10.6%) */}
+                        <circle cx="50" cy="50" r="38" stroke="#fb923c" strokeWidth="12" strokeDasharray="25 240" strokeDashoffset="-194" fill="none" className="transition-all duration-500" />
+                        {/* Buses (6.5%) */}
+                        <circle cx="50" cy="50" r="38" stroke="#f43f5e" strokeWidth="12" strokeDasharray="16 240" strokeDashoffset="-219" fill="none" className="transition-all duration-500" />
+                        {/* Vans (1.8%) */}
+                        <circle cx="50" cy="50" r="38" stroke="#eab308" strokeWidth="12" strokeDasharray="5 240" strokeDashoffset="-235" fill="none" className="transition-all duration-500" />
+                      </svg>
+                      {/* Center Label */}
+                      <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                        <span className={`text-base font-black tracking-tight leading-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                          3,205
+                        </span>
+                        <span className={`text-[10px] font-mono leading-tight ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                          Total
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Legend */}
+                    <div className="space-y-1.5 text-xs flex-1">
+                      {vehicleDistribution.map((item) => (
+                        <div key={item.label} className="flex items-center justify-between text-[11px]">
+                          <div className="flex items-center gap-1.5">
+                            <span className={`w-2 h-2 rounded-full ${item.bgClass}`} />
+                            <span className={isDarkMode ? 'text-slate-300' : 'text-slate-700'}>{item.label}</span>
+                          </div>
+                          <div className="flex items-center gap-2 font-mono">
+                            <span className={`font-bold ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>{item.count}</span>
+                            <span className="text-slate-500 text-[10px]">{item.percent}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Card 3: Top Corridors (Today) (3 cols) */}
+                <div
+                  className={`lg:col-span-3 p-5 rounded-2xl border transition-colors duration-200 flex flex-col justify-between ${
+                    isDarkMode
+                      ? 'bg-[#0d1420]/90 border-slate-800/80 shadow-lg shadow-black/20'
+                      : 'bg-white border-slate-200/90 shadow-sm'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Car className="w-4 h-4 text-cyan-400" />
+                      <h3 className={`text-xs font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                        Top Corridors (Today)
+                      </h3>
+                    </div>
+                    <div className={`flex items-center gap-1 text-[11px] px-2 py-1 rounded-lg border ${
+                      isDarkMode ? 'bg-slate-950 border-slate-800 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'
+                    }`}>
+                      <span>{corridorSortMode}</span>
+                      <ChevronDown className="w-3 h-3 text-slate-400" />
+                    </div>
+                  </div>
+
+                  {/* Corridor Ranked Progress Rows */}
+                  <div className="space-y-3 py-1">
+                    {topCorridorsToday.map((corridor) => (
+                      <div key={corridor.rank} className="space-y-1.5">
+                        <div className="flex items-center justify-between text-[11px]">
+                          <div className="flex items-center gap-2">
+                            <span className={`w-4 h-4 rounded-full flex items-center justify-center font-bold text-[9px] border ${corridor.rankBg}`}>
+                              {corridor.rank}
+                            </span>
+                            <span className={`font-semibold truncate max-w-[130px] ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
+                              {corridor.name}
+                            </span>
+                          </div>
+                          <span className="font-mono font-bold text-emerald-400 text-xs">
+                            {corridor.volume}
+                          </span>
+                        </div>
+                        <div className={`w-full h-1.5 rounded-full overflow-hidden ${isDarkMode ? 'bg-slate-800' : 'bg-slate-100'}`}>
+                          <div
+                            style={{ width: corridor.percent }}
+                            className={`h-full bg-gradient-to-r ${corridor.color} rounded-full`}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </>
