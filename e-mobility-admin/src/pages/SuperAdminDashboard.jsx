@@ -52,6 +52,7 @@ import {
   KeyRound,
   Send
 } from 'lucide-react';
+import SuperAdminSystemSettings from '../components/superadmin/SuperAdminSystemSettings';
 
 export default function SuperAdminDashboard() {
   const navigate = useNavigate();
@@ -2815,96 +2816,10 @@ export default function SuperAdminDashboard() {
 
           {/* -------------------- TAB: SETTINGS -------------------- */}
           {activeTab === 'Settings' && (
-            <div
-              className={`p-6 rounded-2xl border transition-colors duration-200 ${
-                isDarkMode
-                  ? 'bg-[#0d1420]/90 border-slate-800/80 shadow-lg'
-                  : 'bg-white border-slate-200/90 shadow-sm'
-              }`}
-            >
-              <h2
-                className={`text-xl font-bold tracking-tight ${
-                  isDarkMode ? 'text-white' : 'text-slate-900'
-                }`}
-              >
-                Platform Configuration
-              </h2>
-              <p
-                className={`text-xs mt-1 mb-6 ${
-                  isDarkMode ? 'text-slate-400' : 'text-slate-500'
-                }`}
-              >
-                Global settings for the E-Mobility Highway Authority platform.
-              </p>
-
-              <div className="space-y-4 max-w-lg">
-                <div
-                  className={`flex items-center justify-between py-3 border-b ${
-                    isDarkMode ? 'border-slate-800/80' : 'border-slate-200'
-                  }`}
-                >
-                  <div>
-                    <p
-                      className={`text-sm font-semibold ${
-                        isDarkMode ? 'text-white' : 'text-slate-900'
-                      }`}
-                    >
-                      Appearance Theme
-                    </p>
-                    <p
-                      className={`text-xs ${
-                        isDarkMode ? 'text-slate-400' : 'text-slate-500'
-                      }`}
-                    >
-                      Toggle dark or light interface across panels
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setIsDarkMode(!isDarkMode)}
-                    className={`px-3.5 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-2 transition-colors ${
-                      isDarkMode
-                        ? 'border-slate-800 bg-slate-900 text-white hover:border-slate-700'
-                        : 'border-slate-200 bg-slate-50 text-slate-800 hover:bg-slate-100 shadow-sm'
-                    }`}
-                  >
-                    {isDarkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-700" />}
-                    <span>{isDarkMode ? 'Dark' : 'Light'}</span>
-                  </button>
-                </div>
-
-                <div
-                  className={`flex items-center justify-between py-3 border-b ${
-                    isDarkMode ? 'border-slate-800/80' : 'border-slate-200'
-                  }`}
-                >
-                  <div>
-                    <p
-                      className={`text-sm font-semibold ${
-                        isDarkMode ? 'text-white' : 'text-slate-900'
-                      }`}
-                    >
-                      AES-256-GCM Encryption
-                    </p>
-                    <p
-                      className={`text-xs ${
-                        isDarkMode ? 'text-slate-400' : 'text-slate-500'
-                      }`}
-                    >
-                      PII field encryption with HMAC-SHA256 lookup
-                    </p>
-                  </div>
-                  <span
-                    className={`text-xs font-bold font-mono px-2.5 py-1 rounded-lg border ${
-                      isDarkMode
-                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                        : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                    }`}
-                  >
-                    Enforced
-                  </span>
-                </div>
-              </div>
-            </div>
+            <SuperAdminSystemSettings
+              isDarkMode={isDarkMode}
+              showToast={showToast}
+            />
           )}
         </main>
       </div>
