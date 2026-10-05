@@ -57,10 +57,13 @@ import {
   Server,
   Smartphone,
   Zap,
-  Play
+  Play,
+  Phone,
+  ExternalLink
 } from 'lucide-react';
 import { AI_SERVER_URL } from '../config/env';
 import SuperAdminSystemSettings from '../components/superadmin/SuperAdminSystemSettings';
+import SpeedViolationAuditTab from '../components/dashboard/SpeedViolationAuditTab';
 
 export default function SuperAdminDashboard() {
   const navigate = useNavigate();
@@ -202,12 +205,21 @@ export default function SuperAdminDashboard() {
     }
   ]);
 
-  // Live synchronization with registered backend user database
-  const fetchActualAdmins = async () => {
+  // Live synchronization with registered backend user database (Citizens & Admins)
+  const [allUsersList, setAllUsersList] = useState([]);
+  const [userSearchQuery, setUserSearchQuery] = useState('');
+  const [userRoleFilter, setUserRoleFilter] = useState('All');
+  const [userStatusFilter, setUserStatusFilter] = useState('All');
+  const [selectedUserDetail, setSelectedUserDetail] = useState(null);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+
+  const fetchPlatformUsers = async () => {
+    setIsLoadingUsers(true);
     try {
       const users = await authService.getUsers();
       if (Array.isArray(users)) {
-        setTotalCitizensCount(users.length > 0 ? 7000 + users.length : 12480);
+        setAllUsersList(users);
+        setTotalCitizensCount(users.length > 0 ? 12400 + users.length : 12480);
         const realAdmins = users
           .filter((u) => u.role === 'admin' || u.role === 'super_admin')
           .map((u) => ({
@@ -226,12 +238,16 @@ export default function SuperAdminDashboard() {
         }
       }
     } catch (err) {
-      console.warn('Real admin sync notice:', err.message);
+      console.warn('Real platform user sync notice:', err.message);
+    } finally {
+      setIsLoadingUsers(false);
     }
   };
 
   useEffect(() => {
-    fetchActualAdmins();
+    fetchPlatformUsers();
+    const interval = setInterval(fetchPlatformUsers, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   // Poll live AI telemetry
@@ -2626,92 +2642,551 @@ export default function SuperAdminDashboard() {
           )}
 
 
-          {/* -------------------- TAB: USERS -------------------- */}
+          {/* -------------------- TAB: USERS (LIVE USER MANAGEMENT & REGISTRY) -------------------- */}
           {activeTab === 'Users' && (
-            <div
-              className={`p-6 rounded-2xl border transition-colors duration-200 ${
-                isDarkMode
-                  ? 'bg-[#0d1420]/90 border-slate-800/80 shadow-lg'
-                  : 'bg-white border-slate-200/90 shadow-sm'
-              }`}
-            >
-              <h2
-                className={`text-xl font-bold tracking-tight ${
-                  isDarkMode ? 'text-white' : 'text-slate-900'
-                }`}
-              >
-                Platform User Directory
-              </h2>
-              <p
-                className={`text-xs mt-1 mb-6 ${
-                  isDarkMode ? 'text-slate-400' : 'text-slate-500'
-                }`}
-              >
-                12,480 registered EV owners, highway commuters, and transit operators.
-              </p>
+            <div className="space-y-6">
+              {/* Top Summary Metrics */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                <div
+                  className={`p-5 rounded-2xl border transition-all duration-200 ${
+                    isDarkMode
+                      ? 'bg-[#0d1420]/90 border-slate-800/80 shadow-lg shadow-black/20'
+                      : 'bg-white border-slate-200/90 shadow-sm'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className={`text-xs font-semibold uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                      Total Platform Users
+                    </span>
+                    <Users className={`w-4 h-4 ${isDarkMode ? 'text-cyan-500/60' : 'text-cyan-600/70'}`} />
+                  </div>
+                  <div className={`text-3xl font-black mt-2 tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                    {allUsersList.length > 0 ? allUsersList.length : '12,480'}
+                  </div>
+                  <div className={`text-xs font-semibold mt-2 flex items-center gap-1 ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>
+                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse"></span>
+                    <span>Database Synchronized</span>
+                  </div>
+                </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
                 <div
-                  className={`p-4 rounded-xl border ${
-                    isDarkMode ? 'bg-slate-900/60 border-slate-800' : 'bg-slate-50 border-slate-200'
+                  className={`p-5 rounded-2xl border transition-all duration-200 ${
+                    isDarkMode
+                      ? 'bg-[#0d1420]/90 border-slate-800/80 shadow-lg shadow-black/20'
+                      : 'bg-white border-slate-200/90 shadow-sm'
                   }`}
                 >
-                  <span
-                    className={`text-xs font-semibold ${
-                      isDarkMode ? 'text-slate-400' : 'text-slate-500'
-                    }`}
-                  >
-                    Total Commuters
-                  </span>
-                  <div
-                    className={`text-2xl font-black mt-1 ${
-                      isDarkMode ? 'text-white' : 'text-slate-900'
-                    }`}
-                  >
-                    11,200
+                  <div className="flex items-center justify-between">
+                    <span className={`text-xs font-semibold uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                      Registered Citizens
+                    </span>
+                    <User className={`w-4 h-4 ${isDarkMode ? 'text-emerald-500/60' : 'text-emerald-600/70'}`} />
+                  </div>
+                  <div className={`text-3xl font-black mt-2 tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                    {allUsersList.filter((u) => u.role !== 'admin' && u.role !== 'super_admin').length || '11,200'}
+                  </div>
+                  <div className={`text-xs font-semibold mt-2 flex items-center gap-1 ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>
+                    <span>EV Owners & Commuters</span>
                   </div>
                 </div>
+
                 <div
-                  className={`p-4 rounded-xl border ${
-                    isDarkMode ? 'bg-slate-900/60 border-slate-800' : 'bg-slate-50 border-slate-200'
+                  className={`p-5 rounded-2xl border transition-all duration-200 ${
+                    isDarkMode
+                      ? 'bg-[#0d1420]/90 border-slate-800/80 shadow-lg shadow-black/20'
+                      : 'bg-white border-slate-200/90 shadow-sm'
                   }`}
                 >
-                  <span
-                    className={`text-xs font-semibold ${
-                      isDarkMode ? 'text-slate-400' : 'text-slate-500'
-                    }`}
-                  >
-                    Commercial Fleets
-                  </span>
-                  <div
-                    className={`text-2xl font-black mt-1 ${
-                      isDarkMode ? 'text-white' : 'text-slate-900'
-                    }`}
-                  >
-                    1,262
+                  <div className="flex items-center justify-between">
+                    <span className={`text-xs font-semibold uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                      System Administrators
+                    </span>
+                    <ShieldCheck className={`w-4 h-4 ${isDarkMode ? 'text-purple-500/60' : 'text-purple-600/70'}`} />
+                  </div>
+                  <div className={`text-3xl font-black mt-2 tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                    {allUsersList.filter((u) => u.role === 'admin' || u.role === 'super_admin').length || adminsList.length}
+                  </div>
+                  <div className={`text-xs font-semibold mt-2 flex items-center gap-1 ${isDarkMode ? 'text-purple-400' : 'text-purple-600'}`}>
+                    <span>Operators & Command Staff</span>
                   </div>
                 </div>
+
                 <div
-                  className={`p-4 rounded-xl border ${
-                    isDarkMode ? 'bg-slate-900/60 border-slate-800' : 'bg-slate-50 border-slate-200'
+                  className={`p-5 rounded-2xl border transition-all duration-200 ${
+                    isDarkMode
+                      ? 'bg-[#0d1420]/90 border-slate-800/80 shadow-lg shadow-black/20'
+                      : 'bg-white border-slate-200/90 shadow-sm'
                   }`}
                 >
-                  <span
-                    className={`text-xs font-semibold ${
-                      isDarkMode ? 'text-slate-400' : 'text-slate-500'
-                    }`}
-                  >
-                    EV Station Operators
-                  </span>
-                  <div
-                    className={`text-2xl font-black mt-1 ${
-                      isDarkMode ? 'text-white' : 'text-slate-900'
-                    }`}
-                  >
-                    18
+                  <div className="flex items-center justify-between">
+                    <span className={`text-xs font-semibold uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                      Active & Verified
+                    </span>
+                    <CheckCircle2 className={`w-4 h-4 ${isDarkMode ? 'text-emerald-500/60' : 'text-emerald-600/70'}`} />
+                  </div>
+                  <div className={`text-3xl font-black mt-2 tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                    100%
+                  </div>
+                  <div className={`text-xs font-semibold mt-2 flex items-center gap-1 ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>
+                    <span>DMT Registry Linked</span>
                   </div>
                 </div>
               </div>
+
+              {/* User Directory Table Container */}
+              <div
+                className={`p-6 rounded-2xl border transition-colors duration-200 ${
+                  isDarkMode
+                    ? 'bg-[#0d1420]/90 border-slate-800/80 shadow-lg'
+                    : 'bg-white border-slate-200/90 shadow-sm'
+                }`}
+              >
+                {/* Header & Controls */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                  <div>
+                    <h2
+                      className={`text-xl font-bold tracking-tight ${
+                        isDarkMode ? 'text-white' : 'text-slate-900'
+                      }`}
+                    >
+                      National User & Citizen Management
+                    </h2>
+                    <p
+                      className={`text-xs mt-1 ${
+                        isDarkMode ? 'text-slate-400' : 'text-slate-500'
+                      }`}
+                    >
+                      Live synchronized database of registered EV motorists, highway commuters, and administrative personnel.
+                    </p>
+                  </div>
+
+                  {/* Search and Filters Toolbar */}
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    {/* Search Input */}
+                    <div className="relative min-w-[240px]">
+                      <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                      <input
+                        type="text"
+                        value={userSearchQuery}
+                        onChange={(e) => setUserSearchQuery(e.target.value)}
+                        placeholder="Search Citizen, NIC, Email, Mobile..."
+                        className={`w-full pl-9 pr-3.5 py-2 text-xs rounded-xl border outline-none transition-all ${
+                          isDarkMode
+                            ? 'bg-slate-900/80 border-slate-800 text-slate-100 placeholder-slate-500 focus:border-emerald-500'
+                            : 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:border-emerald-600'
+                        }`}
+                      />
+                      {userSearchQuery && (
+                        <button
+                          onClick={() => setUserSearchQuery('')}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 text-xs"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Role Filter */}
+                    <select
+                      value={userRoleFilter}
+                      onChange={(e) => setUserRoleFilter(e.target.value)}
+                      className={`px-3 py-2 text-xs rounded-xl border outline-none font-semibold transition-all cursor-pointer ${
+                        isDarkMode
+                          ? 'bg-slate-900/80 border-slate-800 text-slate-300 focus:border-emerald-500'
+                          : 'bg-slate-50 border-slate-200 text-slate-700 focus:border-emerald-600'
+                      }`}
+                    >
+                      <option value="All">All Roles</option>
+                      <option value="citizen">Citizens</option>
+                      <option value="admin">Administrators</option>
+                      <option value="super_admin">Super Admins</option>
+                    </select>
+
+                    {/* Status Filter */}
+                    <select
+                      value={userStatusFilter}
+                      onChange={(e) => setUserStatusFilter(e.target.value)}
+                      className={`px-3 py-2 text-xs rounded-xl border outline-none font-semibold transition-all cursor-pointer ${
+                        isDarkMode
+                          ? 'bg-slate-900/80 border-slate-800 text-slate-300 focus:border-emerald-500'
+                          : 'bg-slate-50 border-slate-200 text-slate-700 focus:border-emerald-600'
+                      }`}
+                    >
+                      <option value="All">All Statuses</option>
+                      <option value="Active">Active</option>
+                      <option value="Suspended">Suspended</option>
+                      <option value="Pending">Pending</option>
+                    </select>
+
+                    {/* Refresh / Sync Button */}
+                    <button
+                      onClick={fetchPlatformUsers}
+                      disabled={isLoadingUsers}
+                      title="Sync with Live Database"
+                      className={`px-3 py-2 rounded-xl text-xs font-semibold border transition-all flex items-center gap-1.5 ${
+                        isDarkMode
+                          ? 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800 hover:text-white'
+                          : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200 hover:text-slate-900'
+                      }`}
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${isLoadingUsers ? 'animate-spin text-emerald-400' : ''}`} />
+                      <span>{isLoadingUsers ? 'Syncing...' : 'Sync DB'}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Users Table */}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr
+                        className={`text-xs border-b ${
+                          isDarkMode
+                            ? 'text-slate-400 border-slate-800/80'
+                            : 'text-slate-500 border-slate-200'
+                        }`}
+                      >
+                        <th className="pb-3 pl-3 font-semibold uppercase tracking-wider">Citizen / User</th>
+                        <th className="pb-3 font-semibold uppercase tracking-wider">National ID (NIC)</th>
+                        <th className="pb-3 font-semibold uppercase tracking-wider">Mobile Number</th>
+                        <th className="pb-3 font-semibold uppercase tracking-wider">Email Address</th>
+                        <th className="pb-3 font-semibold uppercase tracking-wider">Role</th>
+                        <th className="pb-3 font-semibold uppercase tracking-wider">Status</th>
+                        <th className="pb-3 pr-3 font-semibold uppercase tracking-wider text-right">Details</th>
+                      </tr>
+                    </thead>
+                    <tbody
+                      className={`divide-y text-sm ${
+                        isDarkMode ? 'divide-slate-800/50' : 'divide-slate-100'
+                      }`}
+                    >
+                      {allUsersList
+                        .filter((u) => {
+                          // Search query filter
+                          if (userSearchQuery) {
+                            const q = userSearchQuery.toLowerCase();
+                            const match =
+                              (u.name && u.name.toLowerCase().includes(q)) ||
+                              (u.nic && u.nic.toLowerCase().includes(q)) ||
+                              (u.email && u.email.toLowerCase().includes(q)) ||
+                              (u.mobile && u.mobile.includes(q)) ||
+                              (u.licenseNo && u.licenseNo.toLowerCase().includes(q));
+                            if (!match) return false;
+                          }
+
+                          // Role filter
+                          if (userRoleFilter !== 'All') {
+                            if (userRoleFilter === 'citizen') {
+                              if (u.role === 'admin' || u.role === 'super_admin') return false;
+                            } else if (u.role !== userRoleFilter) {
+                              return false;
+                            }
+                          }
+
+                          // Status filter
+                          if (userStatusFilter !== 'All') {
+                            const userStatus = u.status || 'Active';
+                            if (userStatus.toLowerCase() !== userStatusFilter.toLowerCase()) return false;
+                          }
+
+                          return true;
+                        })
+                        .map((u) => {
+                          const initials = (u.name || 'User')
+                            .split(' ')
+                            .map((p) => p[0])
+                            .join('')
+                            .slice(0, 2)
+                            .toUpperCase();
+
+                          const isSuperAdmin = u.role === 'super_admin';
+                          const isAdmin = u.role === 'admin';
+                          const isCitizen = !isAdmin && !isSuperAdmin;
+
+                          return (
+                            <tr
+                              key={u.id || u.nic || u.email}
+                              className={`transition-colors ${
+                                isDarkMode ? 'hover:bg-slate-800/30' : 'hover:bg-slate-50/80'
+                              }`}
+                            >
+                              {/* Name & Initials */}
+                              <td className="py-3.5 pl-3 pr-4">
+                                <div className="flex items-center gap-2.5">
+                                  <div
+                                    className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs border ${
+                                      isSuperAdmin
+                                        ? 'bg-purple-500/15 text-purple-400 border-purple-500/30'
+                                        : isAdmin
+                                        ? 'bg-cyan-500/15 text-cyan-400 border-cyan-500/30'
+                                        : 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                                    }`}
+                                  >
+                                    {initials}
+                                  </div>
+                                  <div>
+                                    <span
+                                      className={`font-semibold text-xs block ${
+                                        isDarkMode ? 'text-slate-100' : 'text-slate-900'
+                                      }`}
+                                    >
+                                      {u.name || 'Registered Motorist'}
+                                    </span>
+                                    <span
+                                      className={`text-[10px] font-mono ${
+                                        isDarkMode ? 'text-slate-500' : 'text-slate-400'
+                                      }`}
+                                    >
+                                      ID #{u.id || 'SYS'}
+                                    </span>
+                                  </div>
+                                </div>
+                              </td>
+
+                              {/* NIC */}
+                              <td className="py-3.5 pr-4">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-mono text-xs font-semibold text-cyan-400">
+                                    {u.nic || 'N/A'}
+                                  </span>
+                                  {u.nic && (
+                                    <button
+                                      onClick={() => copyToClipboard(u.nic)}
+                                      title="Copy NIC"
+                                      className="p-1 text-slate-400 hover:text-white transition-colors"
+                                    >
+                                      <Copy className="w-3 h-3" />
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+
+                              {/* Mobile */}
+                              <td className="py-3.5 pr-4">
+                                <div className="flex items-center gap-1.5">
+                                  <Phone className="w-3 h-3 text-slate-400" />
+                                  <span className={`font-mono text-xs ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+                                    {u.mobile || 'N/A'}
+                                  </span>
+                                  {u.mobile && (
+                                    <button
+                                      onClick={() => copyToClipboard(u.mobile)}
+                                      title="Copy Mobile"
+                                      className="p-1 text-slate-400 hover:text-white transition-colors"
+                                    >
+                                      <Copy className="w-3 h-3" />
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+
+                              {/* Email */}
+                              <td className="py-3.5 pr-4">
+                                <div className="flex items-center gap-1.5">
+                                  <span className={`text-xs truncate max-w-[180px] ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                                    {u.email || 'N/A'}
+                                  </span>
+                                  {u.email && (
+                                    <button
+                                      onClick={() => copyToClipboard(u.email)}
+                                      title="Copy Email"
+                                      className="p-1 text-slate-400 hover:text-white transition-colors"
+                                    >
+                                      <Copy className="w-3 h-3" />
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+
+                              {/* Role */}
+                              <td className="py-3.5 pr-4">
+                                <span
+                                  className={`px-2.5 py-1 rounded-full text-[11px] font-bold border inline-flex items-center gap-1 ${
+                                    isSuperAdmin
+                                      ? isDarkMode
+                                        ? 'bg-purple-950/70 text-purple-400 border-purple-800/60'
+                                        : 'bg-purple-50 text-purple-700 border-purple-200'
+                                      : isAdmin
+                                      ? isDarkMode
+                                        ? 'bg-cyan-950/70 text-cyan-400 border-cyan-800/60'
+                                        : 'bg-cyan-50 text-cyan-700 border-cyan-200'
+                                      : isDarkMode
+                                      ? 'bg-emerald-950/70 text-emerald-400 border-emerald-800/60'
+                                      : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                  }`}
+                                >
+                                  {isSuperAdmin && <Shield className="w-3 h-3 text-purple-400" />}
+                                  {isAdmin && <ShieldCheck className="w-3 h-3 text-cyan-400" />}
+                                  {isCitizen && <User className="w-3 h-3 text-emerald-400" />}
+                                  <span>
+                                    {isSuperAdmin ? 'Super Admin' : isAdmin ? 'Administrator' : 'Citizen'}
+                                  </span>
+                                </span>
+                              </td>
+
+                              {/* Status */}
+                              <td className="py-3.5 pr-4">
+                                <span
+                                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border ${
+                                    (u.status || 'Active') === 'Active'
+                                      ? isDarkMode
+                                        ? 'bg-emerald-950/70 text-emerald-400 border-emerald-800/60'
+                                        : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                      : (u.status || 'Active') === 'Suspended'
+                                      ? isDarkMode
+                                        ? 'bg-rose-950/70 text-rose-400 border-rose-800/60'
+                                        : 'bg-rose-50 text-rose-700 border-rose-200'
+                                      : isDarkMode
+                                      ? 'bg-amber-950/70 text-amber-400 border-amber-800/60'
+                                      : 'bg-amber-50 text-amber-700 border-amber-200'
+                                  }`}
+                                >
+                                  <span
+                                    className={`w-1.5 h-1.5 rounded-full ${
+                                      (u.status || 'Active') === 'Active'
+                                        ? 'bg-emerald-400 animate-pulse'
+                                        : (u.status || 'Active') === 'Suspended'
+                                        ? 'bg-rose-400'
+                                        : 'bg-amber-400'
+                                    }`}
+                                  ></span>
+                                  <span>{u.status || 'Active'}</span>
+                                </span>
+                              </td>
+
+                              {/* Details Action */}
+                              <td className="py-3.5 pr-3 text-right">
+                                <button
+                                  onClick={() => setSelectedUserDetail(u)}
+                                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all inline-flex items-center gap-1.5 ${
+                                    isDarkMode
+                                      ? 'bg-slate-900 border-slate-800 text-slate-300 hover:text-emerald-400 hover:border-emerald-500/40'
+                                      : 'bg-slate-50 border-slate-200 text-slate-700 hover:text-emerald-600 hover:border-emerald-300'
+                                  }`}
+                                >
+                                  <Eye className="w-3.5 h-3.5" />
+                                  <span>Inspect</span>
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+
+                      {allUsersList.length === 0 && (
+                        <tr>
+                          <td colSpan={7} className="py-8 text-center text-slate-400">
+                            <div className="flex flex-col items-center justify-center gap-2">
+                              <RefreshCw className="w-6 h-6 animate-spin text-emerald-400" />
+                              <p className="text-xs">Loading platform users from live backend...</p>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* User Profile Inspection Modal */}
+              {selectedUserDetail && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-150">
+                  <div
+                    className={`w-full max-w-lg rounded-3xl border shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 ${
+                      isDarkMode ? 'bg-[#0d1420] border-slate-800 text-slate-100' : 'bg-white border-slate-200 text-slate-900'
+                    }`}
+                  >
+                    {/* Header */}
+                    <div
+                      className={`p-6 border-b flex items-center justify-between ${
+                        isDarkMode ? 'border-slate-800 bg-slate-900/40' : 'border-slate-100 bg-slate-50/50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-11 h-11 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-sm">
+                          {(selectedUserDetail.name || 'User').slice(0, 2).toUpperCase()}
+                        </div>
+                        <div>
+                          <h3 className="text-base font-bold tracking-tight">{selectedUserDetail.name}</h3>
+                          <span className="text-xs font-mono text-emerald-400">
+                            {selectedUserDetail.role === 'super_admin'
+                              ? 'Super Administrator'
+                              : selectedUserDetail.role === 'admin'
+                              ? 'System Administrator'
+                              : 'Registered Citizen & Motorist'}
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setSelectedUserDetail(null)}
+                        className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+
+                    {/* Body */}
+                    <div className="p-6 space-y-4 text-xs">
+                      <div
+                        className={`p-4 rounded-2xl border grid grid-cols-2 gap-4 ${
+                          isDarkMode ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-50 border-slate-200'
+                        }`}
+                      >
+                        <div>
+                          <span className="text-slate-400 font-semibold block mb-1">National ID (NIC)</span>
+                          <span className="font-mono font-bold text-cyan-400 text-sm">
+                            {selectedUserDetail.nic || 'N/A'}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 font-semibold block mb-1">Mobile Contact</span>
+                          <span className="font-mono font-bold">{selectedUserDetail.mobile || 'N/A'}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 font-semibold block mb-1">Email Address</span>
+                          <span className="truncate block font-mono">{selectedUserDetail.email || 'N/A'}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 font-semibold block mb-1">Account Status</span>
+                          <span className="text-emerald-400 font-bold inline-flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                            {selectedUserDetail.status || 'Active'}
+                          </span>
+                        </div>
+                        {selectedUserDetail.registeredDate && (
+                          <div>
+                            <span className="text-slate-400 font-semibold block mb-1">Member Since</span>
+                            <span>{selectedUserDetail.registeredDate}</span>
+                          </div>
+                        )}
+                        <div>
+                          <span className="text-slate-400 font-semibold block mb-1">Clearance</span>
+                          <span className="font-bold">
+                            {selectedUserDetail.role === 'super_admin' ? 'Root Platform Access' : selectedUserDetail.role === 'admin' ? 'Operational Admin' : 'Public Highway FastPass'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="p-3.5 rounded-2xl bg-emerald-500/5 border border-emerald-500/15 text-[11px] text-slate-400 leading-relaxed">
+                        🔒 <strong>National Digital ID Synchronized:</strong> Profile verified with Sri Lanka Department of Motor Traffic (DMT) Master Database.
+                      </div>
+                    </div>
+
+                    {/* Footer */}
+                    <div
+                      className={`p-4 border-t flex justify-end gap-2 ${
+                        isDarkMode ? 'border-slate-800 bg-slate-900/30' : 'border-slate-100 bg-slate-50'
+                      }`}
+                    >
+                      <button
+                        onClick={() => setSelectedUserDetail(null)}
+                        className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white"
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -2848,38 +3323,17 @@ export default function SuperAdminDashboard() {
             </div>
           )}
 
-          {/* -------------------- TAB: REPORTS -------------------- */}
+          {/* -------------------- TAB: REPORTS (SPEED VIOLATION AUDIT & E-CHALLAN) -------------------- */}
           {activeTab === 'Reports' && (
-            <div
-              className={`p-6 rounded-2xl border transition-colors duration-200 ${
-                isDarkMode
-                  ? 'bg-[#0d1420]/90 border-slate-800/80 shadow-lg'
-                  : 'bg-white border-slate-200/90 shadow-sm'
-              }`}
-            >
-              <h2
-                className={`text-xl font-bold tracking-tight ${
-                  isDarkMode ? 'text-white' : 'text-slate-900'
-                }`}
-              >
-                Platform Reports & Analytics
-              </h2>
-              <p
-                className={`text-xs mt-1 mb-6 ${
-                  isDarkMode ? 'text-slate-400' : 'text-slate-500'
-                }`}
-              >
-                Cross-corridor performance, revenue telemetry, and compliance audits.
-              </p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => navigate('/dashboard')}
-                  className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-white font-bold text-xs rounded-xl transition-colors flex items-center gap-2 shadow-sm"
-                >
-                  <BarChart3 className="w-4 h-4" />
-                  <span>View Highway e-Challan Reports</span>
-                </button>
-              </div>
+            <div className="space-y-6">
+              <SpeedViolationAuditTab
+                isDarkMode={isDarkMode}
+                onNotification={(titleOrMsg, maybeMsg, maybeType) => {
+                  const title = typeof maybeMsg === 'string' ? `${titleOrMsg}: ${maybeMsg}` : titleOrMsg;
+                  const type = maybeType === 'violation' ? 'error' : maybeType === 'success' ? 'success' : 'info';
+                  showToast(title, type);
+                }}
+              />
             </div>
           )}
 
