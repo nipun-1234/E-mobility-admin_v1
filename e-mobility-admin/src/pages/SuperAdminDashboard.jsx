@@ -614,9 +614,6 @@ export default function SuperAdminDashboard() {
     { name: 'Login Photo Audit', icon: Camera, badge: null },
     { name: 'Users', icon: User, badge: null },
     { name: 'Roles & Permissions', icon: Shield, badge: null },
-    { name: 'Vehicles', icon: Car, badge: null },
-    { name: 'ANPR & CCTV', icon: Video, badge: null },
-    { name: 'Toll & Revenue', icon: CreditCard, badge: null },
     { name: 'Reports', icon: BarChart3, badge: null },
     { name: 'Audit Logs', icon: FileText, badge: null },
     { name: 'Settings', icon: Settings, badge: null }
@@ -3188,7 +3185,7 @@ export default function SuperAdminDashboard() {
           )}
 
           {/* -------------------- TAB: AUDIT LOGS -------------------- */}
-          {activeTab === 'Audit logs' && (
+          {activeTab === 'Audit Logs' && (
             <div
               className={`p-6 rounded-2xl border transition-colors duration-200 ${
                 isDarkMode
