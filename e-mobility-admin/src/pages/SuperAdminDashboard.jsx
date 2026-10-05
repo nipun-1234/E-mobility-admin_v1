@@ -69,7 +69,11 @@ import {
   Coins,
   Landmark,
   Navigation,
-  ChevronDown
+  ChevronDown,
+  ChevronLeft,
+  Edit,
+  Plus,
+  Ban
 } from 'lucide-react';
 import { AI_SERVER_URL } from '../config/env';
 import SuperAdminSystemSettings from '../components/superadmin/SuperAdminSystemSettings';
@@ -237,17 +241,48 @@ export default function SuperAdminDashboard() {
     }
   ]);
 
-  // Actual verified Admin Users Directory State (Real Accounts Only)
+  // Actual verified Admin Users Directory State (Real Accounts Matching Console Telemetry)
   const [adminsList, setAdminsList] = useState([
+    {
+      id: 1,
+      name: 'Test 01',
+      email: 'test1@gmail.com',
+      role: 'admin',
+      status: 'Active',
+      lastLogin: '05 Oct 2026 12:45 PM',
+      loginSubtext: 'Active today',
+      nic: 'ADM-84432600',
+      initials: 'TO',
+      avatarColor: 'bg-teal-500/20 text-teal-300 border-teal-500/30',
+      department: 'TMC Traffic Substation',
+      joinedDate: 'Oct 01, 2026'
+    },
+    {
+      id: 99,
+      name: 'Super Administrator',
+      email: 'emobilitysuperadmin@gmail.com',
+      role: 'super_admin',
+      status: 'Active',
+      lastLogin: '05 Oct 2026 01:20 PM',
+      loginSubtext: 'Online now',
+      nic: '000000000000',
+      initials: 'SA',
+      avatarColor: 'bg-purple-600/30 text-purple-300 border-purple-500/40',
+      department: 'TMC Highway Authority Root',
+      joinedDate: 'Jan 01, 2024'
+    },
     {
       id: 5,
       name: 'Nipun Sudusinghe',
       email: 'nipunsudusinghe523@gmail.com',
       role: 'admin',
       status: 'Active',
-      lastLogin: '10 min ago',
+      lastLogin: '04 Oct 2026 06:30 PM',
+      loginSubtext: '1 day ago',
       nic: '199852300001',
-      department: 'TMC Command Center',
+      initials: 'NS',
+      avatarColor: 'bg-blue-600/30 text-blue-300 border-blue-500/30',
+      department: 'Expressway Operations',
       joinedDate: 'Jan 01, 2024'
     },
     {
@@ -256,20 +291,12 @@ export default function SuperAdminDashboard() {
       email: 'admin@example.com',
       role: 'admin',
       status: 'Active',
-      lastLogin: '1 hr ago',
+      lastLogin: '03 Oct 2026 09:12 AM',
+      loginSubtext: '2 days ago',
       nic: '198512345678',
-      department: 'Expressway Operations',
-      joinedDate: 'Jan 01, 2024'
-    },
-    {
-      id: 99,
-      name: 'Super Administrator',
-      email: 'emobilitysuperadmin@gmail.com',
-      role: 'super_admin',
-      status: 'Active',
-      lastLogin: 'Logged in now',
-      nic: '000000000000',
-      department: 'TMC Highway Authority Root',
+      initials: 'AC',
+      avatarColor: 'bg-amber-600/30 text-amber-300 border-amber-500/30',
+      department: 'Southern Corridor Operations',
       joinedDate: 'Jan 01, 2024'
     }
   ]);
@@ -364,6 +391,11 @@ export default function SuperAdminDashboard() {
     const matchesRole = roleFilter === 'All' || admin.role === roleFilter;
     return matchesSearch && matchesStatus && matchesRole;
   });
+
+  // Admins Table Pagination & Row Action States
+  const [adminPageSize, setAdminPageSize] = useState(10);
+  const [adminCurrentPage, setAdminCurrentPage] = useState(1);
+  const [actionMenuAdminId, setActionMenuAdminId] = useState(null);
 
   // Modal States
   const [manageModalAdmin, setManageModalAdmin] = useState(null);
@@ -1584,158 +1616,140 @@ export default function SuperAdminDashboard() {
           {/* -------------------- TAB: ADMINS (ENTERPRISE ADMIN MANAGEMENT) -------------------- */}
           {activeTab === 'Admins' && (
             <div className="space-y-6">
-              {/* ----------------- TOP SUMMARY CARDS (4 CARDS) ----------------- */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-                {/* 1. Total Admins */}
+              {/* Header: Admin Management & Clock Widget */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h1 className={`text-2xl font-black tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                    Admin Management
+                  </h1>
+                  <p className={`text-xs md:text-sm mt-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                    Manage administrators, roles, permissions and access to system modules.
+                  </p>
+                </div>
+
+                {/* Clock Card */}
                 <div
-                  className={`p-5 rounded-2xl border transition-all duration-200 relative overflow-hidden group ${
+                  className={`px-4 py-2.5 rounded-2xl border flex items-center gap-4 ${
                     isDarkMode
-                      ? 'bg-[#0d1420]/90 border-slate-800/80 shadow-lg shadow-black/20 hover:border-slate-700'
-                      : 'bg-white border-slate-200/90 shadow-sm hover:shadow-md hover:border-slate-300'
+                      ? 'bg-[#0d1420]/90 border-slate-800/80 shadow-lg'
+                      : 'bg-white border-slate-200 shadow-sm'
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <span
-                      className={`text-xs font-semibold uppercase tracking-wider ${
-                        isDarkMode ? 'text-slate-400' : 'text-slate-500'
-                      }`}
-                    >
-                      Total Admins
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-1.5 rounded-lg bg-slate-800/40 text-emerald-400">
+                      <Calendar className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className={`text-[11px] font-bold leading-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                        {currentDateTime.day}
+                      </p>
+                      <p className={`text-[10px] font-mono leading-tight ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                        {currentDateTime.date}
+                      </p>
+                    </div>
+                  </div>
+                  <div className={`pl-4 border-l ${isDarkMode ? 'border-slate-800 text-white' : 'border-slate-200 text-slate-900'} font-mono font-bold text-sm tracking-tight`}>
+                    {currentDateTime.time}
+                  </div>
+                </div>
+              </div>
+
+              {/* ----------------- TOP SUMMARY CARDS (4 CARDS) ----------------- */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* 1. Total Admins */}
+                <div
+                  className={`p-5 rounded-2xl border transition-all duration-200 ${
+                    isDarkMode
+                      ? 'bg-[#0d1420]/90 border-slate-800/80 shadow-lg shadow-black/20'
+                      : 'bg-white border-slate-200/90 shadow-sm'
+                  }`}
+                >
+                  <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                    <Users className="w-4 h-4" />
+                  </div>
+                  <div className="mt-3">
+                    <span className={`text-[11px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                      TOTAL ADMINS
                     </span>
-                    <Users
-                      className={`w-4 h-4 ${
-                        isDarkMode ? 'text-slate-600 opacity-60' : 'text-slate-400 opacity-70'
-                      }`}
-                    />
-                  </div>
-                  <div
-                    className={`text-3xl font-black mt-2 tracking-tight ${
-                      isDarkMode ? 'text-white' : 'text-slate-900'
-                    }`}
-                  >
-                    {totalAdmins}
-                  </div>
-                  <div
-                    className={`text-xs font-semibold mt-2 flex items-center gap-1 ${
-                      isDarkMode ? 'text-slate-400' : 'text-slate-500'
-                    }`}
-                  >
-                    <span>All registered personnel</span>
+                    <div className={`text-3xl font-black mt-1 tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                      {totalAdmins}
+                    </div>
+                    <div className={`text-xs mt-2 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                      All registered personnel
+                    </div>
                   </div>
                 </div>
 
                 {/* 2. Active Admins */}
                 <div
-                  className={`p-5 rounded-2xl border transition-all duration-200 relative overflow-hidden group ${
+                  className={`p-5 rounded-2xl border transition-all duration-200 ${
                     isDarkMode
-                      ? 'bg-[#0d1420]/90 border-slate-800/80 shadow-lg shadow-black/20 hover:border-slate-700'
-                      : 'bg-white border-slate-200/90 shadow-sm hover:shadow-md hover:border-slate-300'
+                      ? 'bg-[#0d1420]/90 border-slate-800/80 shadow-lg shadow-black/20'
+                      : 'bg-white border-slate-200/90 shadow-sm'
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <span
-                      className={`text-xs font-semibold uppercase tracking-wider ${
-                        isDarkMode ? 'text-slate-400' : 'text-slate-500'
-                      }`}
-                    >
-                      Active Admins
+                  <div className="w-9 h-9 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 flex items-center justify-center">
+                    <ShieldCheck className="w-4 h-4" />
+                  </div>
+                  <div className="mt-3">
+                    <span className={`text-[11px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                      ACTIVE ADMINS
                     </span>
-                    <ShieldCheck
-                      className={`w-4 h-4 ${
-                        isDarkMode ? 'text-emerald-500/60' : 'text-emerald-600/70'
-                      }`}
-                    />
-                  </div>
-                  <div
-                    className={`text-3xl font-black mt-2 tracking-tight ${
-                      isDarkMode ? 'text-white' : 'text-slate-900'
-                    }`}
-                  >
-                    {activeAdmins}
-                  </div>
-                  <div
-                    className={`text-xs font-semibold mt-2 flex items-center gap-1 ${
-                      isDarkMode ? 'text-emerald-400' : 'text-emerald-600 font-bold'
-                    }`}
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                    <span>Full operational access</span>
+                    <div className={`text-3xl font-black mt-1 tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                      {activeAdmins}
+                    </div>
+                    <div className="text-xs mt-2 font-semibold text-emerald-400 flex items-center gap-1">
+                      <TrendingUp className="w-3.5 h-3.5" />
+                      <span>100% active</span>
+                    </div>
                   </div>
                 </div>
 
                 {/* 3. Pending Approvals */}
                 <div
-                  className={`p-5 rounded-2xl border transition-all duration-200 relative overflow-hidden group ${
+                  className={`p-5 rounded-2xl border transition-all duration-200 ${
                     isDarkMode
-                      ? 'bg-[#0d1420]/90 border-slate-800/80 shadow-lg shadow-black/20 hover:border-slate-700'
-                      : 'bg-white border-slate-200/90 shadow-sm hover:shadow-md hover:border-slate-300'
+                      ? 'bg-[#0d1420]/90 border-slate-800/80 shadow-lg shadow-black/20'
+                      : 'bg-white border-slate-200/90 shadow-sm'
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <span
-                      className={`text-xs font-semibold uppercase tracking-wider ${
-                        isDarkMode ? 'text-slate-400' : 'text-slate-500'
-                      }`}
-                    >
-                      Pending Approvals
+                  <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center">
+                    <Clock className="w-4 h-4" />
+                  </div>
+                  <div className="mt-3">
+                    <span className={`text-[11px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                      PENDING APPROVALS
                     </span>
-                    <Clock
-                      className={`w-4 h-4 ${
-                        isDarkMode ? 'text-amber-500/60' : 'text-amber-600/70'
-                      }`}
-                    />
-                  </div>
-                  <div
-                    className={`text-3xl font-black mt-2 tracking-tight ${
-                      isDarkMode ? 'text-white' : 'text-slate-900'
-                    }`}
-                  >
-                    {pendingAdmins}
-                  </div>
-                  <div
-                    className={`text-xs font-semibold mt-2 flex items-center gap-1 ${
-                      isDarkMode ? 'text-amber-400' : 'text-amber-700 font-bold'
-                    }`}
-                  >
-                    <span>Requires Super Admin review</span>
+                    <div className={`text-3xl font-black mt-1 tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                      {pendingAdmins}
+                    </div>
+                    <div className="text-xs mt-2 text-amber-400/90">
+                      Requires Super Admin review
+                    </div>
                   </div>
                 </div>
 
                 {/* 4. Suspended Admins */}
                 <div
-                  className={`p-5 rounded-2xl border transition-all duration-200 relative overflow-hidden group ${
+                  className={`p-5 rounded-2xl border transition-all duration-200 ${
                     isDarkMode
-                      ? 'bg-[#0d1420]/90 border-slate-800/80 shadow-lg shadow-black/20 hover:border-slate-700'
-                      : 'bg-white border-slate-200/90 shadow-sm hover:shadow-md hover:border-slate-300'
+                      ? 'bg-[#0d1420]/90 border-slate-800/80 shadow-lg shadow-black/20'
+                      : 'bg-white border-slate-200/90 shadow-sm'
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <span
-                      className={`text-xs font-semibold uppercase tracking-wider ${
-                        isDarkMode ? 'text-slate-400' : 'text-slate-500'
-                      }`}
-                    >
-                      Suspended Admins
+                  <div className="w-9 h-9 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center">
+                    <Ban className="w-4 h-4" />
+                  </div>
+                  <div className="mt-3">
+                    <span className={`text-[11px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                      SUSPENDED ADMINS
                     </span>
-                    <UserX
-                      className={`w-4 h-4 ${
-                        isDarkMode ? 'text-rose-500/60' : 'text-rose-600/70'
-                      }`}
-                    />
-                  </div>
-                  <div
-                    className={`text-3xl font-black mt-2 tracking-tight ${
-                      isDarkMode ? 'text-white' : 'text-slate-900'
-                    }`}
-                  >
-                    {suspendedAdmins}
-                  </div>
-                  <div
-                    className={`text-xs font-semibold mt-2 flex items-center gap-1 ${
-                      isDarkMode ? 'text-slate-400' : 'text-slate-500'
-                    }`}
-                  >
-                    <span>Access revoked</span>
+                    <div className={`text-3xl font-black mt-1 tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                      {suspendedAdmins}
+                    </div>
+                    <div className={`text-xs mt-2 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                      Access revoked
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1756,30 +1770,33 @@ export default function SuperAdminDashboard() {
                         isDarkMode ? 'text-white' : 'text-slate-900'
                       }`}
                     >
-                      Admin Management & Access Delegation
+                      Admins
                     </h2>
                     <p
-                      className={`text-xs mt-1 ${
+                      className={`text-xs mt-0.5 ${
                         isDarkMode ? 'text-slate-400' : 'text-slate-500'
                       }`}
                     >
-                      Enterprise Super Admin console to authorize, configure permissions, and audit subordinate operators.
+                      Manage admin accounts, assign roles and permissions, and control system access.
                     </p>
                   </div>
 
                   {/* Search and Filters Toolbar */}
                   <div className="flex flex-wrap items-center gap-2.5">
                     {/* Search Input */}
-                    <div className="relative min-w-[220px]">
+                    <div className="relative min-w-[240px]">
                       <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                       <input
                         type="text"
                         value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
+                        onChange={(e) => {
+                          setSearchTerm(e.target.value);
+                          setAdminCurrentPage(1);
+                        }}
                         placeholder="Search by name, email, NIC..."
-                        className={`w-full pl-9 pr-3.5 py-2 text-xs rounded-xl border outline-none transition-all ${
+                        className={`w-full pl-9 pr-7 py-2 text-xs rounded-xl border outline-none transition-all ${
                           isDarkMode
-                            ? 'bg-slate-900/80 border-slate-800 text-slate-100 placeholder-slate-500 focus:border-emerald-500'
+                            ? 'bg-[#070b14] border-slate-800 text-slate-100 placeholder-slate-500 focus:border-emerald-500'
                             : 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:border-emerald-600'
                         }`}
                       />
@@ -1793,50 +1810,48 @@ export default function SuperAdminDashboard() {
                       )}
                     </div>
 
-                    {/* Status Filter */}
-                    <select
-                      value={statusFilter}
-                      onChange={(e) => setStatusFilter(e.target.value)}
-                      className={`px-3 py-2 text-xs rounded-xl border outline-none font-semibold transition-all cursor-pointer ${
-                        isDarkMode
-                          ? 'bg-slate-900/80 border-slate-800 text-slate-300 focus:border-emerald-500'
-                          : 'bg-slate-50 border-slate-200 text-slate-700 focus:border-emerald-600'
-                      }`}
-                    >
-                      <option value="All">All Statuses</option>
-                      <option value="Active">Active</option>
-                      <option value="Pending Approval">Pending Approval</option>
-                      <option value="Suspended">Suspended</option>
-                    </select>
-
-                    {/* Role Filter */}
-                    <select
-                      value={roleFilter}
-                      onChange={(e) => setRoleFilter(e.target.value)}
-                      className={`px-3 py-2 text-xs rounded-xl border outline-none font-semibold transition-all cursor-pointer ${
-                        isDarkMode
-                          ? 'bg-slate-900/80 border-slate-800 text-slate-300 focus:border-emerald-500'
-                          : 'bg-slate-50 border-slate-200 text-slate-700 focus:border-emerald-600'
-                      }`}
-                    >
-                      <option value="All">All Roles</option>
-                      <option value="admin">Admin</option>
-                      <option value="super_admin">Super Admin</option>
-                    </select>
-
-                    {/* Reset Filters */}
-                    {(searchTerm || statusFilter !== 'All' || roleFilter !== 'All') && (
-                      <button
-                        onClick={() => {
-                          setSearchTerm('');
-                          setStatusFilter('All');
-                          setRoleFilter('All');
+                    {/* Status Filter Dropdown */}
+                    <div className="relative">
+                      <select
+                        value={statusFilter}
+                        onChange={(e) => {
+                          setStatusFilter(e.target.value);
+                          setAdminCurrentPage(1);
                         }}
-                        className="px-2.5 py-2 rounded-xl text-xs font-semibold text-rose-500 hover:bg-rose-500/10 transition-colors"
+                        className={`appearance-none pl-3 pr-8 py-2 text-xs rounded-xl border outline-none font-semibold transition-all cursor-pointer ${
+                          isDarkMode
+                            ? 'bg-[#070b14] border-slate-800 text-slate-300 focus:border-emerald-500'
+                            : 'bg-slate-50 border-slate-200 text-slate-700 focus:border-emerald-600'
+                        }`}
                       >
-                        Reset
-                      </button>
-                    )}
+                        <option value="All">All Statuses</option>
+                        <option value="Active">Active</option>
+                        <option value="Pending Approval">Pending Approval</option>
+                        <option value="Suspended">Suspended</option>
+                      </select>
+                      <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    </div>
+
+                    {/* Role Filter Dropdown */}
+                    <div className="relative">
+                      <select
+                        value={roleFilter}
+                        onChange={(e) => {
+                          setRoleFilter(e.target.value);
+                          setAdminCurrentPage(1);
+                        }}
+                        className={`appearance-none pl-3 pr-8 py-2 text-xs rounded-xl border outline-none font-semibold transition-all cursor-pointer ${
+                          isDarkMode
+                            ? 'bg-[#070b14] border-slate-800 text-slate-300 focus:border-emerald-500'
+                            : 'bg-slate-50 border-slate-200 text-slate-700 focus:border-emerald-600'
+                        }`}
+                      >
+                        <option value="All">All Roles</option>
+                        <option value="admin">Admin</option>
+                        <option value="super_admin">Super Admin</option>
+                      </select>
+                      <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    </div>
 
                     {/* Create Admin Button */}
                     <button
@@ -1844,15 +1859,15 @@ export default function SuperAdminDashboard() {
                         setCreateAdminResult(null);
                         setShowCreateAdminModal(true);
                       }}
-                      className="px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-emerald-950 flex items-center gap-1.5 shadow-md shadow-emerald-500/25 transition-all cursor-pointer"
+                      className="px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 flex items-center gap-1.5 shadow-md shadow-emerald-500/20 transition-all cursor-pointer"
                     >
-                      <UserPlus className="w-3.5 h-3.5 stroke-[2.5]" />
+                      <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
                       <span>Create Admin</span>
                     </button>
                   </div>
                 </div>
 
-                {/* Table Content */}
+                {/* Table */}
                 <div className="overflow-x-auto">
                   <table className="w-full text-left">
                     <thead>
@@ -1863,12 +1878,12 @@ export default function SuperAdminDashboard() {
                             : 'text-slate-500 border-slate-200 bg-slate-50/50'
                         }`}
                       >
-                        <th className="py-3 px-4 font-semibold uppercase tracking-wider">Administrator</th>
-                        <th className="py-3 px-4 font-semibold uppercase tracking-wider">Email</th>
-                        <th className="py-3 px-4 font-semibold uppercase tracking-wider">Role</th>
-                        <th className="py-3 px-4 font-semibold uppercase tracking-wider">Status</th>
-                        <th className="py-3 px-4 font-semibold uppercase tracking-wider">Last Login</th>
-                        <th className="py-3 px-4 font-semibold uppercase tracking-wider text-right pr-4">Actions</th>
+                        <th className="py-3 px-4 text-[11px] font-bold uppercase tracking-wider">ADMINISTRATOR</th>
+                        <th className="py-3 px-4 text-[11px] font-bold uppercase tracking-wider">EMAIL</th>
+                        <th className="py-3 px-4 text-[11px] font-bold uppercase tracking-wider">ROLE</th>
+                        <th className="py-3 px-4 text-[11px] font-bold uppercase tracking-wider">STATUS</th>
+                        <th className="py-3 px-4 text-[11px] font-bold uppercase tracking-wider">LAST LOGIN</th>
+                        <th className="py-3 px-4 text-[11px] font-bold uppercase tracking-wider text-right pr-4">ACTIONS</th>
                       </tr>
                     </thead>
                     <tbody
@@ -1881,11 +1896,7 @@ export default function SuperAdminDashboard() {
                           <td colSpan="6" className="py-12 text-center">
                             <div className="max-w-xs mx-auto space-y-2">
                               <Users className="w-8 h-8 text-slate-500 mx-auto opacity-50" />
-                              <p
-                                className={`text-sm font-semibold ${
-                                  isDarkMode ? 'text-slate-300' : 'text-slate-700'
-                                }`}
-                              >
+                              <p className={`text-sm font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
                                 No administrators found
                               </p>
                               <p className="text-xs text-slate-500">
@@ -1905,179 +1916,301 @@ export default function SuperAdminDashboard() {
                           </td>
                         </tr>
                       ) : (
-                        filteredAdmins.map((adm) => (
-                          <tr
-                            key={adm.id}
-                            className={`transition-colors ${
-                              isDarkMode ? 'hover:bg-slate-800/30' : 'hover:bg-slate-50/80'
-                            }`}
-                          >
-                            {/* Administrator */}
-                            <td className="py-3.5 px-4 font-semibold">
-                              <div className="flex items-center gap-3">
-                                <div
-                                  className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs border ${
-                                    adm.status === 'Active'
-                                      ? isDarkMode
-                                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                                        : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                      : adm.status === 'Suspended'
-                                      ? isDarkMode
-                                        ? 'bg-rose-500/10 text-rose-400 border-rose-500/20'
-                                        : 'bg-rose-50 text-rose-700 border-rose-200'
-                                      : isDarkMode
-                                      ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                                      : 'bg-amber-50 text-amber-700 border-amber-200'
-                                  }`}
-                                >
-                                  {adm.name
-                                    .split(' ')
-                                    .map((n) => n[0])
-                                    .join('')
-                                    .slice(0, 2)}
-                                </div>
-                                <div>
-                                  <span
-                                    className={`font-semibold block ${
-                                      isDarkMode ? 'text-slate-200' : 'text-slate-900'
-                                    }`}
-                                  >
-                                    {adm.name}
-                                  </span>
-                                  <span className="text-[11px] font-mono text-slate-500 block">
-                                    NIC: {adm.nic}
-                                  </span>
-                                </div>
-                              </div>
-                            </td>
+                        filteredAdmins.map((adm, idx) => {
+                          const initials = adm.initials || adm.name.split(' ').map((n) => n[0]).join('').slice(0, 2);
+                          const avatarColorClass =
+                            adm.avatarColor ||
+                            (adm.role === 'super_admin'
+                              ? 'bg-purple-600/30 text-purple-300 border-purple-500/40'
+                              : idx % 3 === 0
+                              ? 'bg-teal-500/20 text-teal-300 border-teal-500/30'
+                              : idx % 3 === 1
+                              ? 'bg-blue-600/30 text-blue-300 border-blue-500/30'
+                              : 'bg-amber-600/30 text-amber-300 border-amber-500/30');
 
-                            {/* Email */}
-                            <td className="py-3.5 px-4">
-                              <div className="flex items-center gap-2 group">
-                                <span
-                                  className={`font-mono text-xs ${
-                                    isDarkMode ? 'text-slate-400' : 'text-slate-600'
-                                  }`}
-                                >
-                                  {adm.email}
-                                </span>
-                                <button
-                                  onClick={() => copyToClipboard(adm.email)}
-                                  title="Copy email to clipboard"
-                                  className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:text-emerald-500 text-slate-400"
-                                >
-                                  {copiedEmail === adm.email ? (
-                                    <CheckCheck className="w-3.5 h-3.5 text-emerald-500" />
-                                  ) : (
-                                    <Copy className="w-3.5 h-3.5" />
-                                  )}
-                                </button>
-                              </div>
-                            </td>
-
-                            {/* Role */}
-                            <td className="py-3.5 px-4">
-                              <span
-                                className={`px-2.5 py-0.5 rounded text-xs font-mono font-bold border ${
-                                  adm.role === 'super_admin'
-                                    ? isDarkMode
-                                      ? 'bg-purple-500/15 text-purple-400 border-purple-500/30'
-                                      : 'bg-purple-100 text-purple-800 border-purple-300'
-                                    : isDarkMode
-                                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                                    : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                }`}
-                              >
-                                {adm.role === 'super_admin' ? 'Super Admin' : 'Admin'}
-                              </span>
-                            </td>
-
-                            {/* Status */}
-                            <td className="py-3.5 px-4">
-                              <span
-                                className={`inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-semibold border ${
-                                  adm.status === 'Active'
-                                    ? isDarkMode
-                                      ? 'bg-emerald-950/70 text-emerald-400 border-emerald-800/60'
-                                      : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                    : adm.status === 'Suspended'
-                                    ? isDarkMode
-                                      ? 'bg-rose-950/70 text-rose-400 border-rose-800/60'
-                                      : 'bg-rose-50 text-rose-700 border-rose-200'
-                                    : isDarkMode
-                                    ? 'bg-amber-950/70 text-amber-400 border-amber-800/60'
-                                    : 'bg-amber-100 text-amber-800 border-amber-300'
-                                }`}
-                              >
-                                {adm.status === 'Active' && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>}
-                                {adm.status === 'Suspended' && <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>}
-                                {adm.status === 'Pending Approval' && <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>}
-                                <span>{adm.status}</span>
-                              </span>
-                            </td>
-
-                            {/* Last Login */}
-                            <td
-                              className={`py-3.5 px-4 text-xs font-mono ${
-                                isDarkMode ? 'text-slate-400' : 'text-slate-500'
+                          return (
+                            <tr
+                              key={adm.id}
+                              className={`transition-colors ${
+                                isDarkMode ? 'hover:bg-slate-800/30' : 'hover:bg-slate-50/80'
                               }`}
                             >
-                              {adm.lastLogin}
-                            </td>
+                              {/* Administrator */}
+                              <td className="py-3.5 px-4 font-semibold">
+                                <div className="flex items-center gap-3">
+                                  <div
+                                    className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs border shadow-sm ${avatarColorClass}`}
+                                  >
+                                    {initials}
+                                  </div>
+                                  <div>
+                                    <span className={`font-bold block text-sm ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>
+                                      {adm.name}
+                                    </span>
+                                    <span className="text-[11px] font-mono text-slate-400 block mt-0.5">
+                                      NIC: {adm.nic || 'ADM-84432600'}
+                                    </span>
+                                  </div>
+                                </div>
+                              </td>
 
-                            {/* Actions */}
-                            <td className="py-3.5 px-4 text-right pr-4">
-                              {adm.status === 'Pending Approval' ? (
-                                <div className="flex items-center justify-end gap-2">
+                              {/* Email */}
+                              <td className="py-3.5 px-4">
+                                <div className="flex items-center gap-2 group">
+                                  <span className={`font-mono text-xs ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                                    {adm.email}
+                                  </span>
                                   <button
-                                    onClick={() => setConfirmModal({ type: 'approve', admin: adm })}
-                                    className="px-3 py-1 bg-emerald-500 hover:bg-emerald-400 text-white font-bold text-xs rounded-lg transition-colors shadow-sm flex items-center gap-1"
+                                    onClick={() => copyToClipboard(adm.email)}
+                                    title="Copy email to clipboard"
+                                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:text-emerald-500 text-slate-400"
                                   >
-                                    <Check className="w-3.5 h-3.5" />
-                                    <span>Approve</span>
-                                  </button>
-                                  <button
-                                    onClick={() => setConfirmModal({ type: 'reject', admin: adm })}
-                                    className="px-2.5 py-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border border-rose-500/30 font-bold text-xs rounded-lg transition-colors"
-                                  >
-                                    <X className="w-3.5 h-3.5" />
-                                    <span>Reject</span>
+                                    {copiedEmail === adm.email ? (
+                                      <CheckCheck className="w-3.5 h-3.5 text-emerald-500" />
+                                    ) : (
+                                      <Copy className="w-3.5 h-3.5" />
+                                    )}
                                   </button>
                                 </div>
-                              ) : (
-                                <button
-                                  onClick={() => {
-                                    setManageModalAdmin(adm);
-                                    setManageActiveTab('profile');
-                                  }}
-                                  className={`text-xs px-3.5 py-1.5 rounded-lg border font-semibold flex items-center gap-1.5 ml-auto transition-all ${
-                                    isDarkMode
-                                      ? 'border-slate-800 text-slate-300 bg-slate-900/60 hover:text-white hover:border-slate-700 hover:bg-slate-800'
-                                      : 'border-slate-200 text-slate-700 bg-white hover:text-slate-900 hover:bg-slate-50 shadow-sm'
+                              </td>
+
+                              {/* Role */}
+                              <td className="py-3.5 px-4">
+                                <span
+                                  className={`px-3 py-1 rounded-full text-xs font-semibold border ${
+                                    adm.role === 'super_admin'
+                                      ? 'bg-purple-600/20 text-purple-300 border-purple-500/30'
+                                      : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
                                   }`}
                                 >
-                                  <SlidersHorizontal className="w-3.5 h-3.5" />
-                                  <span>Manage</span>
-                                </button>
-                              )}
-                            </td>
-                          </tr>
-                        ))
+                                  {adm.role === 'super_admin' ? 'Super Admin' : 'Admin'}
+                                </span>
+                              </td>
+
+                              {/* Status */}
+                              <td className="py-3.5 px-4">
+                                <span
+                                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border ${
+                                    adm.status === 'Active'
+                                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                      : adm.status === 'Suspended'
+                                      ? 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                                      : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                                  }`}
+                                >
+                                  <span
+                                    className={`w-1.5 h-1.5 rounded-full ${
+                                      adm.status === 'Active'
+                                        ? 'bg-emerald-400'
+                                        : adm.status === 'Suspended'
+                                        ? 'bg-rose-400'
+                                        : 'bg-amber-400 animate-pulse'
+                                    }`}
+                                  />
+                                  <span>{adm.status}</span>
+                                </span>
+                              </td>
+
+                              {/* Last Login */}
+                              <td className="py-3.5 px-4">
+                                <div>
+                                  <span className={`text-xs font-mono block ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+                                    {adm.lastLogin}
+                                  </span>
+                                  <span
+                                    className={`text-[11px] block mt-0.5 ${
+                                      adm.loginSubtext === 'Online now'
+                                        ? 'text-emerald-400 font-semibold'
+                                        : 'text-slate-400'
+                                    }`}
+                                  >
+                                    {adm.loginSubtext || (adm.role === 'super_admin' ? 'Online now' : 'Active today')}
+                                  </span>
+                                </div>
+                              </td>
+
+                              {/* Actions */}
+                              <td className="py-3.5 px-4 text-right pr-4">
+                                <div className="flex items-center justify-end gap-1.5 relative">
+                                  {/* View Button */}
+                                  <button
+                                    onClick={() => {
+                                      setManageModalAdmin(adm);
+                                      setManageActiveTab('profile');
+                                    }}
+                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all shadow-sm ${
+                                      isDarkMode
+                                        ? 'border-slate-800 bg-[#070b14] hover:bg-slate-800 hover:text-white text-slate-300'
+                                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900'
+                                    }`}
+                                  >
+                                    <Eye className="w-3.5 h-3.5" />
+                                    <span>View</span>
+                                  </button>
+
+                                  {/* Edit Button */}
+                                  <button
+                                    onClick={() => {
+                                      setManageModalAdmin(adm);
+                                      setManageActiveTab('role');
+                                    }}
+                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all shadow-sm ${
+                                      isDarkMode
+                                        ? 'border-slate-800 bg-[#070b14] hover:bg-slate-800 hover:text-white text-slate-300'
+                                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900'
+                                    }`}
+                                  >
+                                    <Edit className="w-3.5 h-3.5" />
+                                    <span>Edit</span>
+                                  </button>
+
+                                  {/* More Actions 3-dots */}
+                                  <div className="relative">
+                                    <button
+                                      onClick={() => setActionMenuAdminId(actionMenuAdminId === adm.id ? null : adm.id)}
+                                      className={`p-1.5 rounded-lg border text-xs font-medium transition-all shadow-sm ${
+                                        isDarkMode
+                                          ? 'border-slate-800 bg-[#070b14] hover:bg-slate-800 hover:text-white text-slate-300'
+                                          : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900'
+                                      }`}
+                                    >
+                                      <MoreVertical className="w-3.5 h-3.5" />
+                                    </button>
+
+                                    {/* Action Dropdown Menu */}
+                                    {actionMenuAdminId === adm.id && (
+                                      <div
+                                        className={`absolute right-0 top-full mt-1.5 w-48 rounded-xl border shadow-xl z-30 p-1.5 text-left text-xs ${
+                                          isDarkMode
+                                            ? 'bg-[#0d1420] border-slate-800 text-slate-200 shadow-black/40'
+                                            : 'bg-white border-slate-200 text-slate-800 shadow-lg'
+                                        }`}
+                                      >
+                                        <button
+                                          onClick={() => {
+                                            setActionMenuAdminId(null);
+                                            setManageModalAdmin(adm);
+                                            setManageActiveTab('profile');
+                                          }}
+                                          className="w-full px-2.5 py-1.5 rounded-lg text-left hover:bg-slate-800/60 flex items-center gap-2 transition-colors"
+                                        >
+                                          <Eye className="w-3.5 h-3.5 text-slate-400" />
+                                          <span>View Full Profile</span>
+                                        </button>
+                                        <button
+                                          onClick={() => {
+                                            setActionMenuAdminId(null);
+                                            setManageModalAdmin(adm);
+                                            setManageActiveTab('role');
+                                          }}
+                                          className="w-full px-2.5 py-1.5 rounded-lg text-left hover:bg-slate-800/60 flex items-center gap-2 transition-colors"
+                                        >
+                                          <Shield className="w-3.5 h-3.5 text-emerald-400" />
+                                          <span>Change Role</span>
+                                        </button>
+                                        <button
+                                          onClick={() => {
+                                            setActionMenuAdminId(null);
+                                            setManageModalAdmin(adm);
+                                            setManageActiveTab('security');
+                                          }}
+                                          className="w-full px-2.5 py-1.5 rounded-lg text-left hover:bg-slate-800/60 flex items-center gap-2 transition-colors"
+                                        >
+                                          <Key className="w-3.5 h-3.5 text-amber-400" />
+                                          <span>Reset Password</span>
+                                        </button>
+                                        <div className={`my-1 border-t ${isDarkMode ? 'border-slate-800' : 'border-slate-100'}`} />
+                                        <button
+                                          onClick={() => {
+                                            setActionMenuAdminId(null);
+                                            setConfirmModal({
+                                              type: adm.status === 'Suspended' ? 'reactivate' : 'suspend',
+                                              admin: adm
+                                            });
+                                          }}
+                                          className="w-full px-2.5 py-1.5 rounded-lg text-left hover:bg-rose-500/10 text-rose-400 flex items-center gap-2 transition-colors"
+                                        >
+                                          <Ban className="w-3.5 h-3.5" />
+                                          <span>{adm.status === 'Suspended' ? 'Reactivate Admin' : 'Suspend Account'}</span>
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })
                       )}
                     </tbody>
                   </table>
                 </div>
 
-                {/* Table Footer Stats */}
+                {/* Table Footer with Pagination */}
                 <div
-                  className={`mt-4 pt-3 border-t flex flex-wrap items-center justify-between text-xs ${
-                    isDarkMode ? 'border-slate-800/80 text-slate-500' : 'border-slate-100 text-slate-400'
+                  className={`mt-4 pt-4 border-t flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs ${
+                    isDarkMode ? 'border-slate-800/80 text-slate-400' : 'border-slate-200 text-slate-600'
                   }`}
                 >
                   <span>
-                    Showing {filteredAdmins.length} of {totalAdmins} administrative personnel
+                    Showing 1 to {filteredAdmins.length} of {adminsList.length} admins
                   </span>
-                  <span className="font-mono">Role: Super Admin • Root Delegation Control</span>
+
+                  <div className="flex items-center gap-2 self-end sm:self-auto">
+                    {/* Previous Button */}
+                    <button
+                      disabled={adminCurrentPage <= 1}
+                      onClick={() => setAdminCurrentPage((p) => Math.max(1, p - 1))}
+                      className={`p-1.5 rounded-lg border transition-colors ${
+                        isDarkMode
+                          ? 'border-slate-800 bg-[#070b14] text-slate-400 hover:text-white disabled:opacity-40'
+                          : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900 disabled:opacity-40'
+                      }`}
+                    >
+                      <ChevronLeft className="w-3.5 h-3.5" />
+                    </button>
+
+                    {/* Active Page Number */}
+                    <button
+                      className="w-7 h-7 rounded-lg bg-emerald-500 text-slate-950 font-black text-xs flex items-center justify-center shadow-sm"
+                    >
+                      {adminCurrentPage}
+                    </button>
+
+                    {/* Next Button */}
+                    <button
+                      disabled={adminCurrentPage >= Math.ceil(filteredAdmins.length / adminPageSize)}
+                      onClick={() => setAdminCurrentPage((p) => p + 1)}
+                      className={`p-1.5 rounded-lg border transition-colors ${
+                        isDarkMode
+                          ? 'border-slate-800 bg-[#070b14] text-slate-400 hover:text-white disabled:opacity-40'
+                          : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900 disabled:opacity-40'
+                      }`}
+                    >
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+
+                    {/* Page Size Select */}
+                    <div className="relative ml-2">
+                      <select
+                        value={adminPageSize}
+                        onChange={(e) => {
+                          setAdminPageSize(Number(e.target.value));
+                          setAdminCurrentPage(1);
+                        }}
+                        className={`appearance-none pl-3 pr-7 py-1 rounded-lg border outline-none font-medium text-xs transition-all cursor-pointer ${
+                          isDarkMode
+                            ? 'bg-[#070b14] border-slate-800 text-slate-300'
+                            : 'bg-white border-slate-200 text-slate-700'
+                        }`}
+                      >
+                        <option value={10}>10 per page</option>
+                        <option value={20}>20 per page</option>
+                        <option value={50}>50 per page</option>
+                      </select>
+                      <ChevronDown className="w-3 h-3 absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
