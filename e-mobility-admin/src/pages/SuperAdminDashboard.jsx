@@ -78,6 +78,7 @@ import {
 import { AI_SERVER_URL } from '../config/env';
 import SuperAdminSystemSettings from '../components/superadmin/SuperAdminSystemSettings';
 import SuperAdminRolesPermissions from '../components/superadmin/SuperAdminRolesPermissions';
+import SuperAdminAuditLogs from '../components/superadmin/SuperAdminAuditLogs';
 import SpeedViolationAuditTab from '../components/dashboard/SpeedViolationAuditTab';
 
 export default function SuperAdminDashboard() {
@@ -3186,54 +3187,10 @@ export default function SuperAdminDashboard() {
 
           {/* -------------------- TAB: AUDIT LOGS -------------------- */}
           {activeTab === 'Audit Logs' && (
-            <div
-              className={`p-6 rounded-2xl border transition-colors duration-200 ${
-                isDarkMode
-                  ? 'bg-[#0d1420]/90 border-slate-800/80 shadow-lg'
-                  : 'bg-white border-slate-200/90 shadow-sm'
-              }`}
-            >
-              <h2
-                className={`text-xl font-bold tracking-tight ${
-                  isDarkMode ? 'text-white' : 'text-slate-900'
-                }`}
-              >
-                Security & Forensic Audit Trail
-              </h2>
-              <p
-                className={`text-xs mt-1 mb-6 ${
-                  isDarkMode ? 'text-slate-400' : 'text-slate-500'
-                }`}
-              >
-                Cryptographically protected audit log of all administrative actions and logins.
-              </p>
-              <div className="space-y-3 font-mono text-xs">
-                <div
-                  className={`p-3.5 rounded-xl border flex items-center justify-between ${
-                    isDarkMode ? 'bg-slate-900/60 border-slate-800 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'
-                  }`}
-                >
-                  <span>[2026-10-04 18:25:12] AUTH_SUCCESS user=emobilitysuperadmin@gmail.com role=super_admin ip=127.0.0.1</span>
-                  <span className={`font-bold ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>OK</span>
-                </div>
-                <div
-                  className={`p-3.5 rounded-xl border flex items-center justify-between ${
-                    isDarkMode ? 'bg-slate-900/60 border-slate-800 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'
-                  }`}
-                >
-                  <span>[2026-10-04 18:20:00] STATION_APPROVE admin=Nimali P. station_id=STN-COL-04</span>
-                  <span className={`font-bold ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>DONE</span>
-                </div>
-                <div
-                  className={`p-3.5 rounded-xl border flex items-center justify-between ${
-                    isDarkMode ? 'bg-slate-900/60 border-slate-800 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'
-                  }`}
-                >
-                  <span>[2026-10-04 17:35:44] PRICING_UPDATE admin=Kasun R. rule=OFFPEAK_EV_TARIFF_30</span>
-                  <span className={`font-bold ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>DONE</span>
-                </div>
-              </div>
-            </div>
+            <SuperAdminAuditLogs
+              isDarkMode={isDarkMode}
+              showToast={showToast}
+            />
           )}
 
           {/* -------------------- TAB: SETTINGS -------------------- */}
