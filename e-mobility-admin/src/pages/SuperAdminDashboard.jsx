@@ -77,6 +77,7 @@ import {
 } from 'lucide-react';
 import { AI_SERVER_URL } from '../config/env';
 import SuperAdminSystemSettings from '../components/superadmin/SuperAdminSystemSettings';
+import SuperAdminRolesPermissions from '../components/superadmin/SuperAdminRolesPermissions';
 import SpeedViolationAuditTab from '../components/dashboard/SpeedViolationAuditTab';
 
 export default function SuperAdminDashboard() {
@@ -3165,136 +3166,11 @@ export default function SuperAdminDashboard() {
           )}
 
           {/* -------------------- TAB: ROLES & PERMISSIONS -------------------- */}
-          {activeTab === 'Roles & permissions' && (
-            <div
-              className={`p-6 rounded-2xl border transition-colors duration-200 ${
-                isDarkMode
-                  ? 'bg-[#0d1420]/90 border-slate-800/80 shadow-lg'
-                  : 'bg-white border-slate-200/90 shadow-sm'
-              }`}
-            >
-              <h2
-                className={`text-xl font-bold tracking-tight ${
-                  isDarkMode ? 'text-white' : 'text-slate-900'
-                }`}
-              >
-                Role-Based Access Control (RBAC) Matrix
-              </h2>
-              <p
-                className={`text-xs mt-1 mb-6 ${
-                  isDarkMode ? 'text-slate-400' : 'text-slate-500'
-                }`}
-              >
-                Platform permission configuration and server-side route guards.
-              </p>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div
-                  className={`p-5 rounded-xl border ${
-                    isDarkMode ? 'bg-slate-900/60 border-slate-800' : 'bg-slate-50 border-slate-200'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <span
-                      className={`text-sm font-bold ${
-                        isDarkMode ? 'text-emerald-400' : 'text-emerald-700'
-                      }`}
-                    >
-                      super_admin
-                    </span>
-                    <span
-                      className={`text-[11px] px-2 py-0.5 rounded font-mono font-bold border ${
-                        isDarkMode
-                          ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
-                          : 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                      }`}
-                    >
-                      ROOT
-                    </span>
-                  </div>
-                  <ul
-                    className={`text-xs space-y-2.5 ${
-                      isDarkMode ? 'text-slate-400' : 'text-slate-600'
-                    }`}
-                  >
-                    <li className="flex items-center gap-2">
-                      <CheckCircle2
-                        className={`w-4 h-4 ${
-                          isDarkMode ? 'text-emerald-400' : 'text-emerald-600'
-                        }`}
-                      />
-                      <span>Full access to /super-admin routes & APIs</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle2
-                        className={`w-4 h-4 ${
-                          isDarkMode ? 'text-emerald-400' : 'text-emerald-600'
-                        }`}
-                      />
-                      <span>Subordinate admin creation & approvals</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle2
-                        className={`w-4 h-4 ${
-                          isDarkMode ? 'text-emerald-400' : 'text-emerald-600'
-                        }`}
-                      />
-                      <span>System encryption key audit & DB logs</span>
-                    </li>
-                  </ul>
-                </div>
-
-                <div
-                  className={`p-5 rounded-xl border ${
-                    isDarkMode ? 'bg-slate-900/60 border-slate-800' : 'bg-slate-50 border-slate-200'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <span
-                      className={`text-sm font-bold ${
-                        isDarkMode ? 'text-cyan-400' : 'text-cyan-700'
-                      }`}
-                    >
-                      admin
-                    </span>
-                    <span
-                      className={`text-[11px] px-2 py-0.5 rounded font-mono font-bold border ${
-                        isDarkMode
-                          ? 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30'
-                          : 'bg-cyan-100 text-cyan-800 border-cyan-300'
-                      }`}
-                    >
-                      OPERATOR
-                    </span>
-                  </div>
-                  <ul
-                    className={`text-xs space-y-2.5 ${
-                      isDarkMode ? 'text-slate-400' : 'text-slate-600'
-                    }`}
-                  >
-                    <li className="flex items-center gap-2">
-                      <CheckCircle2
-                        className={`w-4 h-4 ${
-                          isDarkMode ? 'text-cyan-400' : 'text-cyan-600'
-                        }`}
-                      />
-                      <span>Real-time traffic monitoring & speed audit</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle2
-                        className={`w-4 h-4 ${
-                          isDarkMode ? 'text-cyan-400' : 'text-cyan-600'
-                        }`}
-                      />
-                      <span>e-Challan penalty issue & PDF generation</span>
-                    </li>
-                    <li className="flex items-center gap-2 text-slate-400">
-                      <span>✕ Restricted from Super Admin terminal (403)</span>
-                    </li>
-                  </ul>
-                </div>
-              </div>
-            </div>
+          {activeTab === 'Roles & Permissions' && (
+            <SuperAdminRolesPermissions
+              isDarkMode={isDarkMode}
+              showToast={showToast}
+            />
           )}
 
           {/* -------------------- TAB: REPORTS (SPEED VIOLATION AUDIT & E-CHALLAN) -------------------- */}
