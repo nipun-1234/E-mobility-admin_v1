@@ -1,15 +1,16 @@
 import { Router } from 'express';
 import { vehicleController } from '../controllers/vehicle.controller.js';
-import { requireAuth } from '../middleware/auth.middleware.js';
+import { requireAuth, requirePermission } from '../middleware/auth.middleware.js';
 
 const router = Router();
 
-// National Vehicle Registry Lookup (7,000 Records)
+// National Vehicle Registry Lookup (Public / Unrestricted)
 router.get('/lookup/:plate', vehicleController.lookup);
 router.get('/lookup', vehicleController.lookup);
 
-// Vehicle Management (Protected)
-router.get('/', requireAuth, vehicleController.getAll);
-router.post('/', requireAuth, vehicleController.addVehicle);
+// Vehicle Management (Protected by vehicles.manage permission)
+router.get('/', requireAuth, requirePermission('vehicles.manage'), vehicleController.getAll);
+router.post('/', requireAuth, requirePermission('vehicles.manage'), vehicleController.addVehicle);
 
 export default router;
+

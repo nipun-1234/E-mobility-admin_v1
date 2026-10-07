@@ -51,6 +51,8 @@ import {
 import { useAuth } from './context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { authService } from './services/auth.service';
+import { fineService } from './services/fine.service';
+import { notificationService } from './services/notification.service';
 import { realtimeClient } from './services/realtime.client';
 import SettingsSection from './components/SettingsSection';
 import TacticalTopBar from './components/dashboard/TacticalTopBar';
@@ -89,44 +91,7 @@ export default function App() {
     localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
   }, [isDarkMode]);
   const [isPinned, setIsPinned] = useState(true);
-  const [notifications, setNotifications] = useState([
-    {
-      id: 1,
-      title: 'Speed Violation Detected',
-      message: 'SP KY-9080 clocked at 141 km/h (Limit: 100 km/h) at Kadawatha Entry Gate.',
-      type: 'violation',
-      time: '2m ago',
-      read: false,
-      targetTab: 'Reports'
-    },
-    {
-      id: 2,
-      title: 'Audit PDF Generated',
-      message: 'Speed Violation Audit Report for E01 Southern Expressway generated.',
-      type: 'success',
-      time: '12m ago',
-      read: false,
-      targetTab: 'Reports'
-    },
-    {
-      id: 3,
-      title: 'CCTV Latency Alert',
-      message: 'Cam-02 (Kadawatha) edge frame latency elevated to 142ms. Auto-tuned buffer.',
-      type: 'warning',
-      time: '34m ago',
-      read: true,
-      targetTab: 'AI Diagnostics'
-    },
-    {
-      id: 4,
-      title: 'Traffic System Alert',
-      message: 'Dense vehicle queue forming near Peliyagoda Interchange Km 8.5.',
-      type: 'system',
-      time: '1h ago',
-      read: true,
-      targetTab: 'Dashboard'
-    }
-  ]);
+  const [notifications, setNotifications] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCorridor, setSelectedCorridor] = useState('E01 Southern Expressway');
   const [isHovered, setIsHovered] = useState(false);
@@ -160,22 +125,73 @@ export default function App() {
     { id: 7, camId: 'cam_07', name: 'Cam-07 (Katunayake Expy Km 19.4)', location: 'Ja-Ela Interchange', speedLimit: 100, accuracy: 99.0, status: 'Online', activeTracks: 12 },
   ]);
 
-  // Violations List (Rolling Radar)
-  const [violations, setViolations] = useState([
-    { id: 1, plate: 'WP CAB-4521', makeModel: 'Toyota Corolla (Silver)', type: 'Speeding', speed: 128, limit: 100, time: '2 sec ago', cam: 'Cam-07', confidence: 96, checkpoint: 'Kottawa Interchange' },
-    { id: 2, plate: 'SP KY-9080', makeModel: 'Nissan Sunny (Black)', type: 'Speeding', speed: 141, limit: 100, time: '14 sec ago', cam: 'Cam-03', confidence: 98, checkpoint: 'Kadawatha Entry Gate' },
-    { id: 3, plate: 'WP BBC-112', makeModel: 'Honda Grace (White)', type: 'Speeding', speed: 156, limit: 100, time: '31 sec ago', cam: 'Cam-08', confidence: 99, checkpoint: 'Dodangoda Exit Hub' },
-    { id: 4, plate: 'NW LD-7734', makeModel: 'Mitsubishi Lancer (Red)', type: 'Speeding', speed: 119, limit: 100, time: '48 sec ago', cam: 'Cam-07', confidence: 92, checkpoint: 'Kerawalapitiya Junction' },
-    { id: 5, plate: 'CP AB-1234', makeModel: 'Toyota Prius (White)', type: 'Normal', speed: 94, limit: 100, time: '1 min ago', cam: 'Cam-02', confidence: 97, checkpoint: 'Kadawatha Entry Gate' },
-    { id: 6, plate: 'WP CBM-4821', makeModel: 'Kia Sorento (Grey)', type: 'Normal', speed: 98, limit: 100, time: '2 min ago', cam: 'Cam-01', confidence: 99, checkpoint: 'Pinnaduwa Interchange' },
-  ]);
+  // Violations List (Rolling Live Radar — Clean real data only, no mock records)
+  const [violations, setViolations] = useState([]);
 
-  const notifiedVioKeysRef = useRef(new Set([
-    'WP CAB-4521-128',
-    'SP KY-9080-141',
-    'WP BBC-112-156',
-    'NW LD-7734-119'
-  ]));
+  const notifiedVioKeysRef = useRef(new Set());
+
+  // Load initial persisted violations and operational notifications from PostgreSQL on mount
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadInitialData = async () => {
+      // 1. Load Violations
+      try {
+        const data = await fineService.getFines();
+        if (isMounted && Array.isArray(data) && data.length > 0) {
+          const formatted = data.map((f) => {
+            const speedNum = f.capturedSpeed || parseInt(String(f.speedRecorded || '').replace(/\D/g, ''), 10) || 0;
+            const limitNum = f.postedLimit || parseInt(String(f.speedLimit || '').replace(/\D/g, ''), 10) || 100;
+            const camId = (f.cameraId || (f.camera ? f.camera.split('•')[0].trim().toLowerCase() : 'cam_01')).toLowerCase();
+            const camNumber = camId.replace('cam_', '').padStart(2, '0');
+            const camDisplay = f.camera || `Cam-${camNumber}`;
+            return {
+              id: f.id,
+              violationId: f.id,
+              plate: (f.vehiclePlate && f.vehiclePlate !== 'UNREAD' && f.vehiclePlate !== 'null') ? f.vehiclePlate : 'UNREAD',
+              plateStatus: f.plateStatus || (f.vehiclePlate && f.vehiclePlate !== 'UNREAD' ? 'VALID' : 'UNREAD'),
+              plateConfidence: f.plateConfidence !== undefined ? f.plateConfidence : null,
+              plateCropUrl: f.plateCropUrl || null,
+              makeModel: f.vehicleDetails ? `${f.vehicleDetails.make} ${f.vehicleDetails.model}` : (f.make ? `${f.make} ${f.model}` : 'Vehicle'),
+              type: speedNum > limitNum ? 'Speeding' : 'Normal',
+              speed: speedNum,
+              limit: limitNum,
+              time: f.dateTime || f.date || 'Recent',
+              timestamp: f.date || new Date().toISOString(),
+              cam: camDisplay,
+              cameraId: camId,
+              checkpoint: f.location || f.policeStation || 'Highway Checkpoint',
+              confidence: f.plateConfidence ? Math.round(f.plateConfidence * 100) : 99,
+              evidenceImageUrl: f.evidenceImageUrl || f.evidenceImage || null
+            };
+          });
+
+          setViolations((prev) => {
+            const existingIds = new Set(prev.map((p) => p.id));
+            const newFines = formatted.filter((f) => !existingIds.has(f.id));
+            return [...prev, ...newFines].slice(0, 20);
+          });
+        }
+      } catch (err) {
+        console.warn('Could not load historical violations from backend:', err.message);
+      }
+
+      // 2. Load Notifications from PostgreSQL
+      try {
+        const notifs = await notificationService.getNotifications();
+        if (isMounted && Array.isArray(notifs)) {
+          setNotifications(notifs);
+        }
+      } catch (err) {
+        console.warn('Could not load operational notifications:', err.message);
+      }
+    };
+
+    loadInitialData();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const addNotification = (titleOrMsg, maybeMsg, maybeType = 'info', maybeTab = null) => {
     let title = titleOrMsg;
@@ -208,18 +224,32 @@ export default function App() {
     setNotifications(prev => [newNotification, ...prev.slice(0, 19)]);
   };
 
-  const handleMarkAllNotificationsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  const handleMarkAllNotificationsRead = async () => {
+    try {
+      await notificationService.markAllAsRead();
+    } catch (err) {
+      console.warn('Failed to mark all as read on backend:', err);
+    }
+    setNotifications(prev => prev.map(n => ({ ...n, read: true, isRead: true })));
   };
 
-  const handleNotificationClick = (notif) => {
-    // Mark clicked notification as read
-    setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n));
-    // Navigate to related target tab
+  const handleNotificationClick = async (notif) => {
+    // 1. Mark clicked notification as read in PostgreSQL
+    if (notif.id) {
+      try {
+        await notificationService.markAsRead(notif.id);
+      } catch (err) {
+        console.warn('Failed to mark notification as read on backend:', err);
+      }
+    }
+    // 2. Update local state
+    setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true, isRead: true } : n));
+    // 3. Navigate to related target tab
     if (notif.targetTab) {
       setCurrentMenu(notif.targetTab);
     }
   };
+
 
   // Connect Real-Time Client on Mount
   useEffect(() => {
@@ -245,25 +275,56 @@ export default function App() {
       }
     });
 
-    // Realtime speed violation notifications (EXCLUDING normal vehicles & duplicate polls)
+    // Realtime speed violation notifications and live Radar updates
     const unsubVio = realtimeClient.subscribeViolation((vio) => {
-      // STRICT REQUIREMENT: Do NOT notify for normal vehicle detections!
-      if (!vio || vio.type === 'Normal' || (vio.speed && vio.limit && vio.speed <= vio.limit)) {
-        return;
-      }
+      if (!vio) return;
 
-      const vioKey = `${vio.plate || ''}-${vio.speed || ''}`;
-      if (notifiedVioKeysRef.current.has(vioKey)) {
-        return;
-      }
-      notifiedVioKeysRef.current.add(vioKey);
+      const speedVal = Math.round(parseFloat(vio.speed_kmh || vio.speed || 0));
+      const limitVal = Math.round(parseFloat(vio.limit_kmh || vio.limit || 100));
+      const isSpeeding = speedVal > limitVal;
 
-      addNotification(
-        `Speed Violation: ${vio.plate || 'Vehicle'}`,
-        `Clocked at ${vio.speed} km/h (Limit: ${vio.limit || 100} km/h) at ${vio.checkpoint || vio.cam || 'Highway Checkpoint'}`,
-        'violation',
-        'Reports'
-      );
+      const camId = (vio.cameraId || vio.camera_id || (vio.cam ? vio.cam.toLowerCase() : 'cam_01')).toLowerCase();
+      const camNumber = camId.replace('cam_', '').padStart(2, '0');
+      const camDisplay = `Cam-${camNumber}`;
+      const vioId = vio.violationId || vio.id || `FINE-${Date.now()}-${camId.toUpperCase()}`;
+
+      const normalizedVio = {
+        id: vioId,
+        violationId: vioId,
+        plate: vio.plate || vio.vehiclePlate || 'Vehicle',
+        makeModel: vio.vehicleClass || vio.makeModel || 'Vehicle',
+        type: isSpeeding ? 'Speeding' : 'Normal',
+        speed: speedVal,
+        limit: limitVal,
+        time: 'Just now',
+        timestamp: vio.timestamp || new Date().toISOString(),
+        cam: camDisplay,
+        cameraId: camId,
+        checkpoint: vio.location || vio.checkpoint || `Corridor Segment (${camDisplay})`,
+        confidence: 99,
+        evidenceImageUrl: vio.evidenceImageUrl || null
+      };
+
+      // 1. Update live violations radar state with deduplication
+      setViolations((prev) => {
+        const exists = prev.some((item) => item.id === normalizedVio.id);
+        if (exists) return prev;
+        return [normalizedVio, ...prev.slice(0, 19)];
+      });
+
+      // 2. Trigger notification toast if speeding
+      if (isSpeeding) {
+        const notifKey = `${vioId}`;
+        if (!notifiedVioKeysRef.current.has(notifKey)) {
+          notifiedVioKeysRef.current.add(notifKey);
+          addNotification(
+            `Speed Violation: ${normalizedVio.plate}`,
+            `Clocked at ${speedVal} km/h (Limit: ${limitVal} km/h) at ${normalizedVio.checkpoint}`,
+            'violation',
+            'Reports'
+          );
+        }
+      }
     });
 
     const unsubInc = realtimeClient.subscribeIncident((incident) => {

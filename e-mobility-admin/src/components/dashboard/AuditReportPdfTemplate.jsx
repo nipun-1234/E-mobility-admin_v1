@@ -15,30 +15,19 @@ import {
 
 export default function AuditReportPdfTemplate({
   id = 'audit-report-pdf-root',
-  reportId = 'RPT-2025-06-16-0001',
-  reportName = 'E01 Speed Audit - 16 Jun 2025',
+  reportId = 'RPT-2026-10-05-0001',
+  reportName = 'E01 Speed Audit Report',
   highway = 'E01 Southern Expressway',
-  dateRange = '2025-06-16 00:00:00 to 2025-06-16 23:59:59',
-  generatedOn = '2025-06-16 13:39:56',
-  generatedBy = 'R. Senanayake (Operations Lead)',
-  totalVehicles = 2487,
-  speedViolations = 312,
-  warnings = 86,
-  averageSpeed = 82,
+  dateRange = 'Last 24 Hours',
+  generatedOn = new Date().toISOString().replace('T', ' ').slice(0, 19),
+  generatedBy = 'Traffic Management Operations Lead',
+  totalVehicles = 0,
+  speedViolations = 0,
+  warnings = 0,
+  averageSpeed = 0,
   records = []
 }) {
-  const displayRecords = records && records.length > 0 ? records.slice(0, 10) : [
-    { id: 1, plate: 'CAK 1234', makeModel: 'Toyota Corolla (White)', dateTime: '2025-06-16 13:28:14', location: 'Galle (Km 112.4)', lane: 'Lane 2', detectedSpeed: 118, speedLimit: 100, difference: 18, status: 'Violation' },
-    { id: 2, plate: 'WP KD 7788', makeModel: 'Honda Civic (Black)', dateTime: '2025-06-16 13:24:37', location: 'Homagama (Km 98.7)', lane: 'Lane 1', detectedSpeed: 96, speedLimit: 100, difference: -4, status: 'Normal' },
-    { id: 3, plate: 'NC 4567', makeModel: 'Nissan X-Trail (Silver)', dateTime: '2025-06-16 13:21:03', location: 'Kottawa (Km 89.2)', lane: 'Lane 3', detectedSpeed: 142, speedLimit: 100, difference: 42, status: 'Violation' },
-    { id: 4, plate: 'CBF 5521', makeModel: 'Suzuki Alto (Blue)', dateTime: '2025-06-16 13:18:49', location: 'Colombo (Km 75.8)', lane: 'Lane 2', detectedSpeed: 88, speedLimit: 100, difference: -12, status: 'Normal' },
-    { id: 5, plate: 'WP KX 2288', makeModel: 'Toyota Prius (Gray)', dateTime: '2025-06-16 13:15:22', location: 'Panadura (Km 63.1)', lane: 'Lane 1', detectedSpeed: 105, speedLimit: 100, difference: 5, status: 'Warning' },
-    { id: 6, plate: 'SP 9473', makeModel: 'Mitsubishi Lancer (White)', dateTime: '2025-06-16 13:12:07', location: 'Kalutara (Km 54.6)', lane: 'Lane 3', detectedSpeed: 76, speedLimit: 100, difference: -24, status: 'Normal' },
-    { id: 7, plate: 'CAK 6622', makeModel: 'Isuzu D-Max (Black)', dateTime: '2025-06-16 13:08:56', location: 'Beruwala (Km 42.3)', lane: 'Lane 2', detectedSpeed: 121, speedLimit: 100, difference: 21, status: 'Violation' },
-    { id: 8, plate: 'BKV 3154', makeModel: 'Honda Fit (Red)', dateTime: '2025-06-16 13:05:32', location: 'Bentota (Km 37.9)', lane: 'Lane 1', detectedSpeed: 69, speedLimit: 100, difference: -31, status: 'Normal' },
-    { id: 9, plate: 'WP PK 7733', makeModel: 'Land Cruiser (Black)', dateTime: '2025-06-16 13:02:11', location: 'Ahungalla (Km 28.4)', lane: 'Lane 3', detectedSpeed: 110, speedLimit: 100, difference: 10, status: 'Violation' },
-    { id: 10, plate: 'KAT 1189', makeModel: 'Tata Nano (Yellow)', dateTime: '2025-06-16 12:58:46', location: 'Induruwa (Km 21.7)', lane: 'Lane 2', detectedSpeed: 82, speedLimit: 100, difference: -18, status: 'Normal' }
-  ];
+  const displayRecords = Array.isArray(records) ? records.slice(0, 10) : [];
 
   return (
     <div
@@ -422,46 +411,60 @@ export default function AuditReportPdfTemplate({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
-              {displayRecords.map((item, idx) => {
-                const isViolation = item.status === 'Violation';
-                const isWarning = item.status === 'Warning';
-                return (
-                  <tr key={item.id || idx} className="hover:bg-slate-50">
-                    <td className="py-1 px-1.5 text-center font-semibold text-slate-500">{item.id || idx + 1}</td>
-                    <td className="py-1 px-2">
-                      <div className="font-bold text-slate-900 leading-none">{item.plate}</div>
-                      <div className="text-[7.5px] text-slate-500 mt-0.5">{item.makeModel}</div>
-                    </td>
-                    <td className="py-1 px-1.5 text-center font-mono text-[8px] text-slate-700">{item.dateTime}</td>
-                    <td className="py-1 px-1.5 text-center text-slate-700">{item.location}</td>
-                    <td className="py-1 px-1.5 text-center font-medium text-slate-700">{item.lane}</td>
-                    <td className="py-1 px-1.5 text-center font-bold text-slate-900">{item.detectedSpeed}</td>
-                    <td className="py-1 px-1.5 text-center text-slate-600">{item.speedLimit}</td>
-                    <td className={`py-1 px-1.5 text-center font-bold font-mono ${
-                      item.difference > 0 ? 'text-rose-600' : 'text-emerald-600'
-                    }`}>
-                      {item.difference > 0 ? `+${item.difference}` : item.difference}
-                    </td>
-                    <td className="py-1 px-1.5 text-center">
-                      {isViolation && (
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-rose-50 text-rose-600 border border-rose-200 font-bold text-[8px]">
-                          <span className="w-1.5 h-1.5 rounded-full bg-rose-600"></span> Violation
-                        </span>
-                      )}
-                      {isWarning && (
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-200 font-bold text-[8px]">
-                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Warning
-                        </span>
-                      )}
-                      {!isViolation && !isWarning && (
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 font-bold text-[8px]">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span> Normal
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
+              {displayRecords.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="py-4 text-center text-slate-400 font-medium italic">
+                    No vehicle records found for this audit scope.
+                  </td>
+                </tr>
+              ) : (
+                displayRecords.map((item, idx) => {
+                  const isViolation = item.status === 'Violation';
+                  const isWarning = item.status === 'Warning';
+                  return (
+                    <tr key={item.id || idx} className="hover:bg-slate-50">
+                      <td className="py-1 px-1.5 text-center font-semibold text-slate-500">{item.id || idx + 1}</td>
+                      <td className="py-1 px-2">
+                        <div className="font-bold text-slate-900 leading-none">
+                          {item.plate && item.plate !== 'UNREAD' && item.plate !== 'null' ? item.plate : 'UNREAD PLATE'}
+                        </div>
+                        <div className="text-[7.5px] text-slate-500 mt-0.5">
+                          {item.plate && item.plate !== 'UNREAD' && item.plate !== 'null' 
+                            ? item.makeModel 
+                            : 'Plate Unread / Manual Review Required'}
+                        </div>
+                      </td>
+                      <td className="py-1 px-1.5 text-center font-mono text-[8px] text-slate-700">{item.dateTime}</td>
+                      <td className="py-1 px-1.5 text-center text-slate-700">{item.location}</td>
+                      <td className="py-1 px-1.5 text-center font-medium text-slate-700">{item.lane}</td>
+                      <td className="py-1 px-1.5 text-center font-bold text-slate-900">{item.detectedSpeed}</td>
+                      <td className="py-1 px-1.5 text-center text-slate-600">{item.speedLimit}</td>
+                      <td className={`py-1 px-1.5 text-center font-bold font-mono ${
+                        item.difference > 0 ? 'text-rose-600' : 'text-emerald-600'
+                      }`}>
+                        {item.difference > 0 ? `+${item.difference}` : item.difference}
+                      </td>
+                      <td className="py-1 px-1.5 text-center">
+                        {isViolation && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-rose-50 text-rose-600 border border-rose-200 font-bold text-[8px]">
+                            <span className="w-1.5 h-1.5 rounded-full bg-rose-600"></span> Violation
+                          </span>
+                        )}
+                        {isWarning && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-200 font-bold text-[8px]">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Warning
+                          </span>
+                        )}
+                        {!isViolation && !isWarning && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 font-bold text-[8px]">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span> Normal
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>

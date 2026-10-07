@@ -1,6 +1,8 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import html2pdf from 'html2pdf.js';
 import AuditReportPdfTemplate from './AuditReportPdfTemplate';
+import fineService from '../../services/fine.service';
+import { AI_SERVER_URL } from '../../config/env';
 import {
   FileText,
   Save,
@@ -26,187 +28,22 @@ import {
   Printer,
   QrCode,
   Building2,
-  ExternalLink
+  ExternalLink,
+  RefreshCw,
+  Camera,
+  Cpu,
+  Image as ImageIcon
 } from 'lucide-react';
 
-// Baseline 10 high-fidelity audit records directly from user template design
-const INITIAL_AUDIT_DATA = [
-  {
-    id: 1,
-    plate: 'CAK 1234',
-    makeModel: 'Toyota Corolla (White)',
-    dateTime: '2025-06-16 13:28:14',
-    location: 'Galle (Km 112.4)',
-    highway: 'E01 Southern Expressway',
-    lane: 'Lane 2',
-    detectedSpeed: 118,
-    speedLimit: 100,
-    difference: 18,
-    status: 'Violation',
-    owner: 'Nimal Jayawardena',
-    nic: '841920394V',
-    fineAmount: 'LKR 3,000',
-    dueDate: '2025-06-30'
-  },
-  {
-    id: 2,
-    plate: 'WP KD 7788',
-    makeModel: 'Honda Civic (Black)',
-    dateTime: '2025-06-16 13:24:37',
-    location: 'Homagama (Km 98.7)',
-    highway: 'E01 Southern Expressway',
-    lane: 'Lane 1',
-    detectedSpeed: 96,
-    speedLimit: 100,
-    difference: -4,
-    status: 'Normal',
-    owner: 'Kasun Wickramasinghe',
-    nic: '912830491V',
-    fineAmount: null,
-    dueDate: null
-  },
-  {
-    id: 3,
-    plate: 'NC 4567',
-    makeModel: 'Nissan X-Trail (Silver)',
-    dateTime: '2025-06-16 13:21:03',
-    location: 'Kottawa (Km 89.2)',
-    highway: 'E01 Southern Expressway',
-    lane: 'Lane 3',
-    detectedSpeed: 142,
-    speedLimit: 100,
-    difference: 42,
-    status: 'Violation',
-    owner: 'Priyashantha Dissanayake',
-    nic: '772910482V',
-    fineAmount: 'LKR 5,000',
-    dueDate: '2025-06-30'
-  },
-  {
-    id: 4,
-    plate: 'CBF 5521',
-    makeModel: 'Suzuki Alto (Blue)',
-    dateTime: '2025-06-16 13:18:49',
-    location: 'Colombo (Km 75.8)',
-    highway: 'E01 Southern Expressway',
-    lane: 'Lane 2',
-    detectedSpeed: 88,
-    speedLimit: 100,
-    difference: -12,
-    status: 'Normal',
-    owner: 'Chamari Gunawardena',
-    nic: '958291029V',
-    fineAmount: null,
-    dueDate: null
-  },
-  {
-    id: 5,
-    plate: 'WP KX 2288',
-    makeModel: 'Toyota Prius (Gray)',
-    dateTime: '2025-06-16 13:15:22',
-    location: 'Panadura (Km 63.1)',
-    highway: 'E01 Southern Expressway',
-    lane: 'Lane 1',
-    detectedSpeed: 105,
-    speedLimit: 100,
-    difference: 5,
-    status: 'Warning',
-    owner: 'Sunil Weerakkody',
-    nic: '802910392V',
-    fineAmount: 'Advisory Warning',
-    dueDate: null
-  },
-  {
-    id: 6,
-    plate: 'SP 9473',
-    makeModel: 'Mitsubishi Lancer (White)',
-    dateTime: '2025-06-16 13:12:07',
-    location: 'Kalutara (Km 54.6)',
-    highway: 'E01 Southern Expressway',
-    lane: 'Lane 3',
-    detectedSpeed: 76,
-    speedLimit: 100,
-    difference: -24,
-    status: 'Normal',
-    owner: 'Roshan Fernando',
-    nic: '882910394V',
-    fineAmount: null,
-    dueDate: null
-  },
-  {
-    id: 7,
-    plate: 'CAK 6622',
-    makeModel: 'Isuzu D-Max (Black)',
-    dateTime: '2025-06-16 13:08:56',
-    location: 'Beruwala (Km 42.3)',
-    highway: 'E01 Southern Expressway',
-    lane: 'Lane 2',
-    detectedSpeed: 121,
-    speedLimit: 100,
-    difference: 21,
-    status: 'Violation',
-    owner: 'Mohamed Rizvi',
-    nic: '832910492V',
-    fineAmount: 'LKR 3,000',
-    dueDate: '2025-06-30'
-  },
-  {
-    id: 8,
-    plate: 'BKV 3154',
-    makeModel: 'Honda Fit (Red)',
-    dateTime: '2025-06-16 13:05:32',
-    location: 'Bentota (Km 37.9)',
-    highway: 'E01 Southern Expressway',
-    lane: 'Lane 1',
-    detectedSpeed: 69,
-    speedLimit: 100,
-    difference: -31,
-    status: 'Normal',
-    owner: 'Tharindu Perera',
-    nic: '932810394V',
-    fineAmount: null,
-    dueDate: null
-  },
-  {
-    id: 9,
-    plate: 'WP PK 7733',
-    makeModel: 'Land Cruiser (Black)',
-    dateTime: '2025-06-16 13:02:11',
-    location: 'Ahungalla (Km 28.4)',
-    highway: 'E01 Southern Expressway',
-    lane: 'Lane 3',
-    detectedSpeed: 110,
-    speedLimit: 100,
-    difference: 10,
-    status: 'Violation',
-    owner: 'Anura Kumara Silva',
-    nic: '752910394V',
-    fineAmount: 'LKR 3,000',
-    dueDate: '2025-06-30'
-  },
-  {
-    id: 10,
-    plate: 'KAT 1189',
-    makeModel: 'Tata Nano (Yellow)',
-    dateTime: '2025-06-16 12:58:46',
-    location: 'Induruwa (Km 21.7)',
-    highway: 'E01 Southern Expressway',
-    lane: 'Lane 2',
-    detectedSpeed: 82,
-    speedLimit: 100,
-    difference: -18,
-    status: 'Normal',
-    owner: 'Gayan Ratnayake',
-    nic: '962910394V',
-    fineAmount: null,
-    dueDate: null
-  }
-];
-
 export default function SpeedViolationAuditTab({ isDarkMode = true, onNotification }) {
+  // Backend Records State
+  const [records, setRecords] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
+
   // Filter States
-  const [dateTimeRange, setDateTimeRange] = useState('2025-06-16 00:00 - 2025-06-16 23:59');
-  const [selectedHighway, setSelectedHighway] = useState('E01 Southern Expressway');
+  const [dateTimeRange, setDateTimeRange] = useState('All Recorded Dates');
+  const [selectedHighway, setSelectedHighway] = useState('All');
   const [selectedLane, setSelectedLane] = useState('All');
   const [searchPlate, setSearchPlate] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
@@ -218,9 +55,9 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
   const [isExporting, setIsExporting] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [showSaveAuditModal, setShowSaveAuditModal] = useState(false);
-  const [reportName, setReportName] = useState('E01 Speed Audit - 04 Oct 2026');
-  const [reportDateRange, setReportDateRange] = useState('04 Oct 2026 00:00  →  04 Oct 2026 23:59');
-  const [reportHighway, setReportHighway] = useState('E01 Southern Expressway');
+  const [reportName, setReportName] = useState(`Speed Violation Audit - ${new Date().toLocaleDateString('en-GB')}`);
+  const [reportDateRange, setReportDateRange] = useState('All Persistent Records');
+  const [reportHighway, setReportHighway] = useState('All Corridors');
 
   // Export Modal States
   const [showExportModal, setShowExportModal] = useState(false);
@@ -235,15 +72,171 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
     detectedSpeed: true,
     speedLimit: true,
     difference: true,
-    status: true
+    status: true,
+    fineId: true,
+    amount: true,
+    camera: true
   });
+
+  // Fetch real PostgreSQL violation and fine records
+  const fetchAuditRecords = useCallback(async (isSilent = false) => {
+    if (!isSilent) setLoading(true);
+    setLoadError(null);
+    try {
+      const data = await fineService.getFines();
+      const finesList = Array.isArray(data) ? data : (data?.data || []);
+      const mapped = finesList.map((item, idx) => {
+        const id = item.id || `TX-${idx + 1}`;
+        const plate = (item.vehiclePlate || item.plate || 'N/A').toUpperCase();
+        const makeModel = item.vehicleDetails
+          ? `${item.vehicleDetails.make || ''} ${item.vehicleDetails.model || ''} ${item.vehicleDetails.year ? `(${item.vehicleDetails.year})` : ''}`.trim() || item.offence || 'Vehicle'
+          : (item.offence || 'Vehicle');
+        const dateTime = item.dateTime || item.date || 'N/A';
+        const location = item.location || item.locationCoords || 'Highway Grid';
+        const highway = item.policeStation || (location.toLowerCase().includes('southern') ? 'E01 Southern Expressway' : (location.toLowerCase().includes('outer') ? 'E02 Outer Circular Expressway' : 'E01 Southern Expressway'));
+        const lane = item.lane || 'Lane 1';
+        const detectedSpeed = typeof item.capturedSpeed === 'number' && item.capturedSpeed > 0
+          ? item.capturedSpeed
+          : (typeof item.speedRecorded === 'number' ? item.speedRecorded : parseInt(String(item.speedRecorded || 0).replace(/\D/g, ''), 10) || 0);
+        const speedLimit = typeof item.postedLimit === 'number' && item.postedLimit > 0
+          ? item.postedLimit
+          : (typeof item.speedLimit === 'number' ? item.speedLimit : parseInt(String(item.speedLimit || 100).replace(/\D/g, ''), 10) || 100);
+        const difference = detectedSpeed > 0 ? detectedSpeed - speedLimit : 0;
+
+        let status = 'Normal';
+        if (item.status === 'Paid') {
+          status = 'Paid';
+        } else if (item.status === 'Disputed') {
+          status = 'Disputed';
+        } else if (difference > 0 || (item.offence && item.offence.toLowerCase().includes('speed'))) {
+          status = 'Violation';
+        } else if (difference >= -5 && difference <= 0 && detectedSpeed > 0) {
+          status = 'Warning';
+        }
+
+        const isAiDetected = Boolean(item.cameraId || item.trackingId || item.evidenceImageUrl);
+        const cameraId = item.cameraId || (item.camera ? item.camera.split('•')[0].trim().toLowerCase() : null);
+        const trackingId = item.trackingId || null;
+        const owner = item.vehicleDetails?.owner || item.vehicleDetails?.ownerNic || 'Registered Vehicle Owner';
+        const nic = item.vehicleDetails?.ownerNic || item.ownerNic || 'N/A';
+        const fineAmount = item.amount ? `LKR ${Number(item.amount).toLocaleString()}` : (status === 'Violation' ? 'LKR 3,850' : null);
+        const dueDate = item.dueDate || 'N/A';
+
+        // Evidence snapshot image URL resolution
+        let rawEvidence = typeof item.evidenceImageUrl === 'string' && item.evidenceImageUrl.trim() 
+          ? item.evidenceImageUrl.trim() 
+          : (typeof item.evidenceImage === 'string' && item.evidenceImage.trim() ? item.evidenceImage.trim() : null);
+        let evidenceImageUrl = '/speed_violation_evidence.png';
+        if (rawEvidence && rawEvidence !== 'true' && rawEvidence !== 'false') {
+          if (rawEvidence.startsWith('http://') || rawEvidence.startsWith('https://') || rawEvidence.startsWith('data:')) {
+            evidenceImageUrl = rawEvidence;
+          } else if (rawEvidence.startsWith('/uploads/')) {
+            evidenceImageUrl = `${AI_SERVER_URL}${rawEvidence}`;
+          } else if (rawEvidence.startsWith('/')) {
+            evidenceImageUrl = `${AI_SERVER_URL}${rawEvidence}`;
+          } else {
+            evidenceImageUrl = `${AI_SERVER_URL}/${rawEvidence}`;
+          }
+        }
+
+        // ANPR Plate Crop URL resolution
+        let rawPlateCrop = typeof item.plateCropUrl === 'string' && item.plateCropUrl.trim() 
+          ? item.plateCropUrl.trim() 
+          : (typeof item.plate_crop_url === 'string' && item.plate_crop_url.trim() ? item.plate_crop_url.trim() : null);
+        let plateCropUrl = null;
+        if (rawPlateCrop && rawPlateCrop !== 'true' && rawPlateCrop !== 'false') {
+          if (rawPlateCrop.startsWith('http://') || rawPlateCrop.startsWith('https://') || rawPlateCrop.startsWith('data:')) {
+            plateCropUrl = rawPlateCrop;
+          } else if (rawPlateCrop.startsWith('/uploads/')) {
+            plateCropUrl = `${AI_SERVER_URL}${rawPlateCrop}`;
+          } else if (rawPlateCrop.startsWith('/')) {
+            plateCropUrl = `${AI_SERVER_URL}${rawPlateCrop}`;
+          } else {
+            plateCropUrl = `${AI_SERVER_URL}/${rawPlateCrop}`;
+          }
+        }
+
+        return {
+          id,
+          fineId: id,
+          plate,
+          plateStatus: item.plateStatus || (item.vehiclePlate && item.vehiclePlate !== 'UNREAD' ? 'VALID' : 'UNREAD'),
+          plateConfidence: item.plateConfidence !== undefined ? item.plateConfidence : null,
+          plateRawText: item.plateRawText || null,
+          plateCropUrl,
+          registryMatch: Boolean(item.registryMatch),
+          makeModel,
+          dateTime,
+          date: item.date || 'N/A',
+          location,
+          highway,
+          lane,
+          detectedSpeed,
+          speedLimit,
+          difference,
+          status,
+          owner,
+          nic,
+          fineAmount,
+          dueDate,
+          cameraId,
+          trackingId,
+          evidenceImageUrl,
+          isAiDetected,
+          policeStation: item.policeStation || 'Expressway Traffic Division',
+          receiptNo: item.receiptNo || 'N/A',
+          paidAt: item.paidAt || null,
+          demeritPoints: item.demeritPoints !== undefined ? item.demeritPoints : (difference >= 20 ? 4 : (difference > 0 ? 3 : 0))
+        };
+      });
+      setRecords(mapped);
+    } catch (err) {
+      console.error('Failed to load violation records from backend:', err);
+      setLoadError('Failed to load official violation records from backend database.');
+      setRecords([]);
+    } finally {
+      if (!isSilent) setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchAuditRecords();
+  }, [fetchAuditRecords]);
+
+  // Dynamic KPI Metrics derived from REAL fetched records
+  const metrics = useMemo(() => {
+    const totalVehicles = records.length;
+    const speedViolations = records.filter(r => r.status === 'Violation').length;
+    const warnings = records.filter(r => r.status === 'Warning').length;
+    const paid = records.filter(r => r.status === 'Paid').length;
+    const normal = records.filter(r => r.status === 'Normal' || r.status === 'Paid').length;
+    const averageSpeed = totalVehicles > 0
+      ? Math.round(records.reduce((acc, r) => acc + (r.detectedSpeed || 0), 0) / totalVehicles)
+      : 0;
+    const violationPercent = totalVehicles > 0 ? ((speedViolations / totalVehicles) * 100).toFixed(1) : '0.0';
+    const warningPercent = totalVehicles > 0 ? ((warnings / totalVehicles) * 100).toFixed(1) : '0.0';
+
+    return {
+      totalVehicles,
+      speedViolations,
+      warnings,
+      paid,
+      normal,
+      averageSpeed,
+      violationPercent,
+      warningPercent
+    };
+  }, [records]);
 
   // Filtered Records
   const filteredData = useMemo(() => {
-    return INITIAL_AUDIT_DATA.filter((item) => {
+    return records.filter((item) => {
       // Highway match
-      if (selectedHighway !== 'All' && !item.highway.toLowerCase().includes(selectedHighway.toLowerCase().split(' ')[0])) {
-        if (selectedHighway === 'E01 Southern Expressway' && !item.highway.includes('E01')) return false;
+      if (selectedHighway !== 'All') {
+        const hKey = selectedHighway.toLowerCase().split(' ')[0];
+        if (!item.highway.toLowerCase().includes(hKey) && !item.location.toLowerCase().includes(hKey)) {
+          return false;
+        }
       }
       // Lane match
       if (selectedLane !== 'All' && item.lane !== selectedLane) {
@@ -254,6 +247,7 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
         if (statusFilter === 'Violation' && item.status !== 'Violation') return false;
         if (statusFilter === 'Normal' && item.status !== 'Normal') return false;
         if (statusFilter === 'Warning' && item.status !== 'Warning') return false;
+        if (statusFilter === 'Paid' && item.status !== 'Paid') return false;
       }
       // Plate search match
       if (searchPlate.trim()) {
@@ -261,16 +255,26 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
         const matchesPlate = item.plate.toLowerCase().includes(query);
         const matchesModel = item.makeModel.toLowerCase().includes(query);
         const matchesLocation = item.location.toLowerCase().includes(query);
-        if (!matchesPlate && !matchesModel && !matchesLocation) return false;
+        const matchesFineId = String(item.id).toLowerCase().includes(query);
+        const matchesCam = item.cameraId && String(item.cameraId).toLowerCase().includes(query);
+        if (!matchesPlate && !matchesModel && !matchesLocation && !matchesFineId && !matchesCam) return false;
       }
       return true;
     });
-  }, [selectedHighway, selectedLane, statusFilter, searchPlate]);
+  }, [records, selectedHighway, selectedLane, statusFilter, searchPlate]);
+
+  // Pagination calculation
+  const pageSize = 10;
+  const totalPages = Math.max(1, Math.ceil(filteredData.length / pageSize));
+  const pagedData = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredData.slice(start, start + pageSize);
+  }, [filteredData, currentPage]);
 
   // Reset Filters
   const handleReset = () => {
-    setDateTimeRange('2025-06-16 00:00 - 2025-06-16 23:59');
-    setSelectedHighway('E01 Southern Expressway');
+    setDateTimeRange('All Recorded Dates');
+    setSelectedHighway('All');
     setSelectedLane('All');
     setSearchPlate('');
     setStatusFilter('All');
@@ -310,7 +314,6 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
     }).catch((err) => {
       console.error('Error generating PDF with html2pdf:', err);
       setIsExporting(false);
-      // Fallback
       window.print();
     });
   };
@@ -333,30 +336,35 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
       if (exportScope === 'violations') {
         rowsToExport = filteredData.filter(i => i.status === 'Violation');
       } else if (exportScope === 'page') {
-        const startIndex = (currentPage - 1) * 10;
-        rowsToExport = filteredData.slice(startIndex, startIndex + 10);
+        rowsToExport = pagedData;
       }
 
       const headers = [];
+      if (exportColumns.fineId) headers.push('Fine ID');
       if (exportColumns.plate) headers.push('Vehicle / Plate');
+      if (exportColumns.camera) headers.push('Camera / Tracking ID');
       if (exportColumns.dateTime) headers.push('Date & Time');
       if (exportColumns.location) headers.push('Location');
       if (exportColumns.lane) headers.push('Lane');
       if (exportColumns.detectedSpeed) headers.push('Detected Speed (km/h)');
       if (exportColumns.speedLimit) headers.push('Speed Limit (km/h)');
       if (exportColumns.difference) headers.push('Difference (km/h)');
+      if (exportColumns.amount) headers.push('Fine Amount');
       if (exportColumns.status) headers.push('Violation Status');
 
       const rows = rowsToExport.map(item => {
         const row = [];
+        if (exportColumns.fineId) row.push(`"${item.fineId || item.id}"`);
         if (exportColumns.plate) row.push(`"${item.plate}"`);
+        if (exportColumns.camera) row.push(`"${item.cameraId ? `${item.cameraId} (Track #${item.trackingId || 'N/A'})` : 'Manual / Static'}"`);
         if (exportColumns.dateTime) row.push(`"${item.dateTime}"`);
         if (exportColumns.location) row.push(`"${item.location}"`);
         if (exportColumns.lane) row.push(`"${item.lane}"`);
         if (exportColumns.detectedSpeed) row.push(item.detectedSpeed);
         if (exportColumns.speedLimit) row.push(item.speedLimit);
         if (exportColumns.difference) row.push(item.difference);
-        if (exportColumns.status) row.push(item.status);
+        if (exportColumns.amount) row.push(`"${item.fineAmount || 'N/A'}"`);
+        if (exportColumns.status) row.push(`"${item.status}"`);
         return row;
       });
 
@@ -411,16 +419,35 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
               isDarkMode ? 'text-white' : 'text-slate-900'
             }`}>
               Speed & Violation Audit
+              <span className={`text-xs px-2.5 py-0.5 rounded-full font-mono font-medium border ${
+                isDarkMode ? 'bg-sky-950/60 border-sky-800 text-sky-300' : 'bg-sky-50 border-sky-200 text-sky-700'
+              }`}>
+                PostgreSQL Live Sync
+              </span>
             </h1>
             <p className={`text-xs mt-1 max-w-2xl leading-relaxed ${
               isDarkMode ? 'text-slate-400' : 'text-slate-500'
             }`}>
-              Automatically detect vehicle speeds on highways and generate a complete vehicle audit report for every detected vehicle — including both normal and violation cases.
+              Live audit reports and e-Challan dossiers synchronized directly with backend PostgreSQL database and automated AI radar camera feeds.
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2.5 flex-shrink-0 self-end md:self-center">
+          <button
+            onClick={() => fetchAuditRecords()}
+            disabled={loading}
+            className={`p-2 rounded-xl text-xs font-semibold border flex items-center gap-1.5 transition-all shadow-sm ${
+              isDarkMode
+                ? 'bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700'
+                : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200'
+            }`}
+            title="Refresh database records"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-sky-400' : ''}`} />
+            <span className="hidden sm:inline">Refresh</span>
+          </button>
+
           <button
             onClick={handleSaveReport}
             className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all shadow-sm ${
@@ -435,8 +462,8 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
 
           <button
             onClick={() => setShowExportModal(true)}
-            disabled={isExporting}
-            className="px-4 py-2 rounded-xl text-xs font-semibold bg-[#0066cc] hover:bg-[#0055b3] text-white flex items-center gap-2 shadow-sm transition-all active:scale-95"
+            disabled={isExporting || records.length === 0}
+            className="px-4 py-2 rounded-xl text-xs font-semibold bg-[#0066cc] hover:bg-[#0055b3] disabled:opacity-40 text-white flex items-center gap-2 shadow-sm transition-all active:scale-95"
           >
             <Download className="w-4 h-4" />
             <span>{isExporting ? 'Exporting...' : 'Export Report (CSV/PDF)'}</span>
@@ -445,7 +472,7 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
       </div>
 
       {/* ------------------------------------------------------------- */}
-      {/* 2. FOUR METRIC SUMMARY CARDS */}
+      {/* 2. FOUR METRIC SUMMARY CARDS (DYNAMIC FROM REAL DATA) */}
       {/* ------------------------------------------------------------- */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
         {/* Total Vehicles */}
@@ -460,14 +487,14 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
           <div>
             <span className={`text-[11px] font-medium uppercase tracking-wider block ${
               isDarkMode ? 'text-slate-400' : 'text-slate-500'
-            }`}>Total Vehicles</span>
+            }`}>Total Violations & Audits</span>
             <span className={`text-2xl font-black leading-tight block ${
               isDarkMode ? 'text-white' : 'text-slate-900'
-            }`}>2,487</span>
+            }`}>{metrics.totalVehicles.toLocaleString()}</span>
             <span className={`text-[11px] font-semibold flex items-center gap-0.5 mt-0.5 ${
               isDarkMode ? 'text-emerald-400' : 'text-emerald-600'
             }`}>
-              <span>↑ 12%</span> <span className={`${isDarkMode ? 'text-slate-400' : 'text-slate-400'} font-normal`}>vs. previous period</span>
+              <span>Live records</span> <span className={`${isDarkMode ? 'text-slate-400' : 'text-slate-400'} font-normal`}>in PostgreSQL</span>
             </span>
           </div>
         </div>
@@ -487,16 +514,16 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
             }`}>Speed Violations</span>
             <span className={`text-2xl font-black leading-tight block ${
               isDarkMode ? 'text-white' : 'text-slate-900'
-            }`}>312</span>
+            }`}>{metrics.speedViolations.toLocaleString()}</span>
             <span className={`text-[11px] font-medium mt-0.5 block ${
               isDarkMode ? 'text-slate-400' : 'text-slate-500'
             }`}>
-              <strong className={isDarkMode ? 'text-rose-400 font-semibold' : 'text-rose-600 font-semibold'}>12.6%</strong> of total vehicles
+              <strong className={isDarkMode ? 'text-rose-400 font-semibold' : 'text-rose-600 font-semibold'}>{metrics.violationPercent}%</strong> of total records
             </span>
           </div>
         </div>
 
-        {/* Warnings */}
+        {/* Warnings / Disputed */}
         <div className={`p-4 rounded-2xl border transition-colors shadow-sm flex items-center gap-3.5 ${
           isDarkMode ? 'bg-slate-900/90 border-slate-800/90' : 'bg-white border-slate-200/90'
         }`}>
@@ -508,14 +535,14 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
           <div>
             <span className={`text-[11px] font-medium uppercase tracking-wider block ${
               isDarkMode ? 'text-slate-400' : 'text-slate-500'
-            }`}>Warnings</span>
+            }`}>Warnings & Notices</span>
             <span className={`text-2xl font-black leading-tight block ${
               isDarkMode ? 'text-white' : 'text-slate-900'
-            }`}>86</span>
+            }`}>{metrics.warnings.toLocaleString()}</span>
             <span className={`text-[11px] font-medium mt-0.5 block ${
               isDarkMode ? 'text-slate-400' : 'text-slate-500'
             }`}>
-              <strong className={isDarkMode ? 'text-amber-400 font-semibold' : 'text-amber-600 font-semibold'}>3.5%</strong> of total vehicles
+              <strong className={isDarkMode ? 'text-amber-400 font-semibold' : 'text-amber-600 font-semibold'}>{metrics.warningPercent}%</strong> of total records
             </span>
           </div>
         </div>
@@ -535,11 +562,11 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
             }`}>Average Speed</span>
             <span className={`text-2xl font-black leading-tight block ${
               isDarkMode ? 'text-white' : 'text-slate-900'
-            }`}>82 km/h</span>
+            }`}>{metrics.averageSpeed > 0 ? `${metrics.averageSpeed} km/h` : 'N/A'}</span>
             <span className={`text-[11px] font-semibold flex items-center gap-0.5 mt-0.5 ${
               isDarkMode ? 'text-emerald-400' : 'text-emerald-600'
             }`}>
-              <span>↓ 6%</span> <span className={`${isDarkMode ? 'text-slate-400' : 'text-slate-400'} font-normal`}>vs. previous period</span>
+              <span>Recorded Mean</span> <span className={`${isDarkMode ? 'text-slate-400' : 'text-slate-400'} font-normal`}>across active fleet</span>
             </span>
           </div>
         </div>
@@ -558,7 +585,7 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
               isDarkMode ? 'text-slate-300' : 'text-slate-600'
             }`}>
               <Calendar className="w-3.5 h-3.5 text-sky-400" />
-              <span>Date & Time Range</span>
+              <span>Date Scope</span>
             </label>
             <div className="relative">
               <Calendar className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -566,6 +593,7 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
                 type="text"
                 value={dateTimeRange}
                 onChange={(e) => setDateTimeRange(e.target.value)}
+                placeholder="e.g. 2026-10-05"
                 className={`w-full pl-9 pr-3 py-2 rounded-xl text-xs font-mono transition-all outline-none border ${
                   isDarkMode
                     ? 'bg-slate-950 border-slate-800 text-slate-100 focus:border-sky-500'
@@ -581,7 +609,7 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
               isDarkMode ? 'text-slate-300' : 'text-slate-600'
             }`}>
               <MapPin className="w-3.5 h-3.5 text-sky-400" />
-              <span>Highway / Location</span>
+              <span>Highway / Corridor</span>
             </label>
             <select
               value={selectedHighway}
@@ -592,11 +620,11 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
                   : 'bg-slate-50 border-slate-200 text-slate-800 focus:bg-white focus:border-sky-500'
               }`}
             >
+              <option value="All">All Corridors (Entire Island)</option>
               <option value="E01 Southern Expressway">E01 Southern Expressway</option>
               <option value="E02 Outer Circular Expressway">E02 Outer Circular Expressway</option>
               <option value="E03 Katunayake Expressway">E03 Katunayake Expressway</option>
               <option value="E04 Central Expressway">E04 Central Expressway</option>
-              <option value="All">All Corridors (Entire Island)</option>
             </select>
           </div>
 
@@ -617,26 +645,26 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
                   : 'bg-slate-50 border-slate-200 text-slate-800 focus:bg-white focus:border-sky-500'
               }`}
             >
-              <option value="All">/|\ All Lanes</option>
+              <option value="All">All Lanes</option>
               <option value="Lane 1">Lane 1 (Overtaking)</option>
               <option value="Lane 2">Lane 2 (Cruising)</option>
               <option value="Lane 3">Lane 3 (Slow / Heavy)</option>
             </select>
           </div>
 
-          {/* Plate Number */}
+          {/* Plate / Citation Number */}
           <div>
             <label className={`flex items-center gap-1.5 text-xs font-semibold mb-1.5 ${
               isDarkMode ? 'text-slate-300' : 'text-slate-600'
             }`}>
               <Car className="w-3.5 h-3.5 text-sky-400" />
-              <span>Plate Number</span>
+              <span>Plate / Fine Ref</span>
             </label>
             <div className="relative">
               <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
-                placeholder="e.g. CAK 1234"
+                placeholder="e.g. WP CAB-4521 or TX-88421"
                 value={searchPlate}
                 onChange={(e) => setSearchPlate(e.target.value)}
                 className={`w-full pl-8 pr-3 py-2 rounded-xl text-xs transition-all outline-none border ${
@@ -654,7 +682,7 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
               isDarkMode ? 'text-slate-300' : 'text-slate-600'
             }`}>
               <Filter className="w-3.5 h-3.5 text-sky-400" />
-              <span>Status</span>
+              <span>Violation Status</span>
             </label>
             <div className="flex items-center gap-2">
               <select
@@ -666,10 +694,11 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
                     : 'bg-slate-50 border-slate-200 text-slate-800 focus:bg-white focus:border-sky-500'
                 }`}
               >
-                <option value="All">All (Normal + Violation)</option>
+                <option value="All">All Statuses</option>
                 <option value="Violation">Violation Only</option>
                 <option value="Normal">Normal Only</option>
                 <option value="Warning">Warning Only</option>
+                <option value="Paid">Paid Only</option>
               </select>
 
               <button
@@ -703,7 +732,7 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
                   ? 'bg-slate-950/80 border-slate-800 text-slate-400'
                   : 'bg-[#f8fafc] border-slate-200 text-slate-600'
               }`}>
-                <th className="py-3 px-3.5 text-center w-10">#</th>
+                <th className="py-3 px-3.5 text-center w-12"># Ref</th>
                 <th className="py-3 px-3.5">
                   <div className="flex items-center gap-1.5">
                     <Car className="w-3.5 h-3.5 text-slate-400" />
@@ -719,7 +748,7 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
                 <th className="py-3 px-3.5">
                   <div className="flex items-center gap-1.5">
                     <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                    <span>Location</span>
+                    <span>Location / Camera</span>
                   </div>
                 </th>
                 <th className="py-3 px-3.5">
@@ -731,19 +760,19 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
                 <th className="py-3 px-3.5">
                   <div className="flex items-center gap-1.5">
                     <Gauge className="w-3.5 h-3.5 text-slate-400" />
-                    <span>Detected Speed</span>
+                    <span>Speed</span>
                   </div>
                 </th>
                 <th className="py-3 px-3.5">
                   <div className="flex items-center gap-1.5">
                     <ShieldCheck className="w-3.5 h-3.5 text-slate-400" />
-                    <span>Speed Limit</span>
+                    <span>Limit</span>
                   </div>
                 </th>
                 <th className="py-3 px-3.5">
                   <div className="flex items-center gap-1.5">
                     <FileText className="w-3.5 h-3.5 text-slate-400" />
-                    <span>Difference</span>
+                    <span>Delta</span>
                   </div>
                 </th>
                 <th className="py-3 px-3.5">
@@ -761,11 +790,38 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
                 ? 'divide-slate-800/80 text-slate-200'
                 : 'divide-slate-100 text-slate-700'
             }`}>
-              {filteredData.length > 0 ? (
-                filteredData.map((row) => {
+              {loading ? (
+                <tr>
+                  <td colSpan="11" className="text-center py-12">
+                    <div className="flex flex-col items-center justify-center space-y-2">
+                      <RefreshCw className="w-6 h-6 animate-spin text-sky-500" />
+                      <p className={`text-xs font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                        Loading violation records from PostgreSQL...
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+              ) : loadError ? (
+                <tr>
+                  <td colSpan="11" className="text-center py-12">
+                    <div className="flex flex-col items-center justify-center space-y-2">
+                      <AlertCircle className="w-6 h-6 text-rose-500" />
+                      <p className="text-xs font-semibold text-rose-400">{loadError}</p>
+                      <button
+                        onClick={() => fetchAuditRecords()}
+                        className="mt-2 px-3 py-1.5 rounded-lg bg-rose-950/60 border border-rose-800 text-rose-200 text-xs hover:bg-rose-900 transition"
+                      >
+                        Retry Connection
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ) : pagedData.length > 0 ? (
+                pagedData.map((row) => {
                   const isViolation = row.status === 'Violation';
                   const isWarning = row.status === 'Warning';
                   const isNormal = row.status === 'Normal';
+                  const isPaid = row.status === 'Paid';
 
                   return (
                     <tr
@@ -776,11 +832,11 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
                           : 'hover:bg-sky-50/50'
                       }`}
                     >
-                      {/* # */}
-                      <td className={`py-3 px-3.5 text-center font-bold ${
+                      {/* # Ref */}
+                      <td className={`py-3 px-3.5 text-center font-mono text-[11px] font-bold ${
                         isDarkMode ? 'text-slate-400' : 'text-slate-500'
                       }`}>
-                        {row.id}
+                        {String(row.fineId || row.id).slice(-8)}
                       </td>
 
                       {/* Vehicle / Plate */}
@@ -792,15 +848,39 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
                             <Car className="w-4 h-4" />
                           </div>
                           <div>
-                            <div className={`font-bold font-mono tracking-tight text-xs ${
-                              isDarkMode ? 'text-white' : 'text-slate-900'
-                            }`}>
-                              {row.plate}
+                            <div className="flex items-center gap-1.5">
+                              {row.plate && row.plate !== 'UNREAD' && row.plate !== 'null' ? (
+                                <span className={`font-bold font-mono tracking-tight text-xs ${
+                                  isDarkMode ? 'text-white' : 'text-slate-900'
+                                }`}>
+                                  {row.plate}
+                                </span>
+                              ) : (
+                                <span className="font-bold font-mono tracking-tight text-xs text-amber-400">
+                                  UNREAD PLATE
+                                </span>
+                              )}
+
+                              {row.plateConfidence !== null && row.plateConfidence !== undefined && (
+                                <span className={`text-[9px] px-1 py-0.5 rounded font-mono font-bold ${
+                                  isDarkMode ? 'bg-cyan-950/80 text-cyan-300 border border-cyan-800/60' : 'bg-cyan-50 text-cyan-700 border border-cyan-200'
+                                }`}>
+                                  {Math.round(row.plateConfidence > 1 ? row.plateConfidence : row.plateConfidence * 100)}% ANPR
+                                </span>
+                              )}
+
+                              {(!row.plate || row.plate === 'UNREAD' || row.plate === 'null') && (
+                                <span className={`text-[9px] px-1.5 py-0.5 rounded font-mono font-bold uppercase tracking-wider ${
+                                  isDarkMode ? 'bg-amber-950/80 text-amber-300 border border-amber-800/60' : 'bg-amber-50 text-amber-700 border border-amber-200'
+                                }`}>
+                                  Manual Review
+                                </span>
+                              )}
                             </div>
-                            <div className={`text-[11px] ${
+                            <div className={`text-[11px] truncate max-w-[180px] ${
                               isDarkMode ? 'text-slate-400' : 'text-slate-500'
                             }`}>
-                              {row.makeModel}
+                              {row.plate && row.plate !== 'UNREAD' && row.plate !== 'null' ? row.makeModel : 'Plate Unread / Manual Inspection Required'}
                             </div>
                           </div>
                         </div>
@@ -813,11 +893,19 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
                         {row.dateTime}
                       </td>
 
-                      {/* Location */}
-                      <td className={`py-3 px-3.5 font-medium ${
-                        isDarkMode ? 'text-slate-200' : 'text-slate-700'
-                      }`}>
-                        {row.location}
+                      {/* Location & Camera */}
+                      <td className="py-3 px-3.5">
+                        <div className={`font-medium ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>
+                          {row.location}
+                        </div>
+                        {row.cameraId && (
+                          <div className={`text-[10px] font-mono flex items-center gap-1 mt-0.5 ${
+                            isDarkMode ? 'text-sky-400' : 'text-sky-600'
+                          }`}>
+                            <Camera className="w-3 h-3" />
+                            <span>{row.cameraId.toUpperCase()} {row.trackingId ? `• ID:${row.trackingId}` : ''}</span>
+                          </div>
+                        )}
                       </td>
 
                       {/* Lane */}
@@ -832,7 +920,7 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
                         <span className={`font-black font-mono text-xs ${
                           isDarkMode ? 'text-white' : 'text-slate-900'
                         }`}>
-                          {row.detectedSpeed} km/h
+                          {row.detectedSpeed > 0 ? `${row.detectedSpeed} km/h` : 'N/A'}
                         </span>
                       </td>
 
@@ -840,23 +928,27 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
                       <td className={`py-3 px-3.5 font-mono text-xs ${
                         isDarkMode ? 'text-slate-400' : 'text-slate-500'
                       }`}>
-                        {row.speedLimit} km/h
+                        {row.speedLimit > 0 ? `${row.speedLimit} km/h` : 'N/A'}
                       </td>
 
                       {/* Difference */}
                       <td className="py-3 px-3.5 font-mono font-bold text-xs">
-                        {row.difference > 0 ? (
-                          <span className={
-                            isViolation
-                              ? isDarkMode ? 'text-rose-400' : 'text-rose-600'
-                              : isDarkMode ? 'text-amber-400' : 'text-amber-600'
-                          }>
-                            +{row.difference} km/h
-                          </span>
+                        {row.detectedSpeed > 0 ? (
+                          row.difference > 0 ? (
+                            <span className={
+                              isViolation
+                                ? isDarkMode ? 'text-rose-400' : 'text-rose-600'
+                                : isDarkMode ? 'text-amber-400' : 'text-amber-600'
+                            }>
+                              +{row.difference} km/h
+                            </span>
+                          ) : (
+                            <span className={isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}>
+                              {row.difference} km/h
+                            </span>
+                          )
                         ) : (
-                          <span className={isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}>
-                            {row.difference} km/h
-                          </span>
+                          <span className={isDarkMode ? 'text-slate-500' : 'text-slate-400'}>N/A</span>
                         )}
                       </td>
 
@@ -892,23 +984,35 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
                             <span>Normal</span>
                           </span>
                         )}
+                        {isPaid && (
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${
+                            isDarkMode
+                              ? 'bg-emerald-950/60 border-emerald-800/60 text-emerald-300'
+                              : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                          }`}>
+                            <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                            <span>Paid</span>
+                          </span>
+                        )}
                       </td>
 
-                      {/* Evidence (Plate Crop Thumbnail) */}
+                      {/* Evidence (Snapshot Thumbnail) */}
                       <td className="py-2.5 px-3.5 text-center">
                         <div
                           onClick={() => setSelectedEvidence(row)}
                           className="inline-block cursor-pointer group"
-                          title="Click to zoom evidence"
+                          title="Click to zoom evidence snapshot"
                         >
-                          <div className={`w-20 h-7 rounded flex items-center justify-center px-1 shadow-sm transition-all border ${
-                            isDarkMode
-                              ? 'bg-slate-950 border-slate-700 group-hover:border-sky-400'
-                              : 'bg-slate-900 border-slate-700 group-hover:border-sky-500'
-                          }`}>
-                            <span className="text-[10px] font-black font-mono text-slate-100 tracking-wider group-hover:text-amber-300">
-                              {row.plate}
-                            </span>
+                          <div className="relative w-14 h-8 rounded-lg overflow-hidden border border-slate-700 group-hover:border-sky-400 transition bg-slate-900 shadow-xs flex items-center justify-center">
+                            <img
+                              src={row.evidenceImageUrl || '/speed_violation_evidence.png'}
+                              alt="Violation evidence"
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.src = '/speed_violation_evidence.png';
+                              }}
+                            />
                           </div>
                         </div>
                       </td>
@@ -926,7 +1030,7 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
                             title="Inspect high-definition camera capture & optical telemetry"
                           >
                             <Eye className="w-3 h-3" />
-                            <span>View Evidence</span>
+                            <span>Evidence</span>
                           </button>
 
                           <button
@@ -939,7 +1043,7 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
                             title="Inspect official Sri Lanka e-Challan citation dossier"
                           >
                             <FileText className="w-3 h-3" />
-                            <span>Details</span>
+                            <span>e-Challan</span>
                           </button>
                         </div>
                       </td>
@@ -952,13 +1056,20 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
                     isDarkMode ? 'text-slate-400' : 'text-slate-500'
                   }`}>
                     <Search className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                    <p className="text-sm font-semibold">No audit records match your current filter criteria</p>
-                    <button
-                      onClick={handleReset}
-                      className="mt-2 text-xs text-sky-500 hover:underline font-semibold"
-                    >
-                      Reset all filters
-                    </button>
+                    <p className="text-sm font-semibold">No violation records found in database.</p>
+                    <p className="text-xs mt-1 opacity-75">
+                      {records.length === 0
+                        ? 'PostgreSQL contains 0 violations. Any new high-speed violation detected by the camera pipeline will appear here.'
+                        : 'No records match your active search and filter criteria.'}
+                    </p>
+                    {records.length > 0 && (
+                      <button
+                        onClick={handleReset}
+                        className="mt-2 text-xs text-sky-500 hover:underline font-semibold"
+                      >
+                        Reset all filters
+                      </button>
+                    )}
                   </td>
                 </tr>
               )}
@@ -975,8 +1086,12 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
             : 'bg-[#f8fafc] border-slate-200 text-slate-500'
         }`}>
           <div>
-            Showing <strong className={isDarkMode ? 'text-slate-200' : 'text-slate-700'}>1 - {Math.min(filteredData.length, 10)}</strong> of{' '}
-            <strong className={isDarkMode ? 'text-slate-200' : 'text-slate-700'}>2,487</strong> vehicles
+            Showing <strong className={isDarkMode ? 'text-slate-200' : 'text-slate-700'}>
+              {filteredData.length > 0 ? (currentPage - 1) * pageSize + 1 : 0} - {Math.min(currentPage * pageSize, filteredData.length)}
+            </strong> of{' '}
+            <strong className={isDarkMode ? 'text-slate-200' : 'text-slate-700'}>
+              {filteredData.length.toLocaleString()}
+            </strong> real records
           </div>
 
           <div className="flex items-center space-x-1">
@@ -992,7 +1107,7 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
               <ChevronLeft className="w-4 h-4" />
             </button>
 
-            {[1, 2, 3, 4, 5].map((pageNum) => (
+            {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i + 1).map((pageNum) => (
               <button
                 key={pageNum}
                 onClick={() => setCurrentPage(pageNum)}
@@ -1008,20 +1123,26 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
               </button>
             ))}
 
-            <span className="px-1 text-slate-500">...</span>
+            {totalPages > 5 && (
+              <>
+                <span className="px-1 text-slate-500">...</span>
+                <button
+                  onClick={() => setCurrentPage(totalPages)}
+                  className={`w-8 h-7 rounded-lg text-xs font-semibold ${
+                    currentPage === totalPages
+                      ? 'bg-[#0088cc] text-white shadow-sm'
+                      : isDarkMode ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {totalPages}
+                </button>
+              </>
+            )}
 
             <button
-              onClick={() => setCurrentPage(249)}
-              className={`w-8 h-7 rounded-lg text-xs font-semibold ${
-                isDarkMode ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              249
-            </button>
-
-            <button
-              onClick={() => setCurrentPage(p => Math.min(249, p + 1))}
-              className={`p-1 rounded-lg border ${
+              disabled={currentPage >= totalPages}
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              className={`p-1 rounded-lg border disabled:opacity-30 ${
                 isDarkMode
                   ? 'border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800'
                   : 'border-slate-200 text-slate-400 hover:text-slate-700 hover:bg-slate-100'
@@ -1052,7 +1173,7 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
                     Optical Evidence Dossier • {selectedEvidence.plate}
                   </h3>
                   <p className="text-[11px] text-slate-400">
-                    High-Definition CCTV Telemetry Capture (Km Marker: {selectedEvidence.location})
+                    High-Definition CCTV Telemetry Capture (Location: {selectedEvidence.location})
                   </p>
                 </div>
               </div>
@@ -1068,28 +1189,45 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
             <div className={`p-5 space-y-4 ${
               isDarkMode ? 'bg-slate-950/60' : 'bg-slate-50'
             }`}>
-              {/* Surveillance Simulated Frame */}
+              {/* Surveillance Snapshot Frame */}
               <div className="relative aspect-video bg-black rounded-xl overflow-hidden border border-slate-800 flex items-center justify-center">
                 <img
-                  src={`/camera_01_live.jpg`}
-                  onError={(e) => {
-                    e.target.onerror = null;
-                    e.target.src = '/sample_camera_output.jpg';
-                  }}
+                  src={selectedEvidence.evidenceImageUrl || '/speed_violation_evidence.png'}
                   alt="Captured vehicle frame"
                   className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = '/speed_violation_evidence.png';
+                  }}
                 />
+
+                {/* Localized Plate Crop inset overlay if available */}
+                {selectedEvidence.plateCropUrl && (
+                  <div className="absolute top-3 right-3 p-1 rounded-lg bg-black/90 border border-slate-700 shadow-xl pointer-events-auto">
+                    <span className="text-[9px] font-mono text-cyan-400 block px-1 pb-0.5">ANPR Plate Crop</span>
+                    <img
+                      src={selectedEvidence.plateCropUrl}
+                      alt="Plate Crop"
+                      className="h-10 w-auto rounded border border-slate-800 object-contain bg-black"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                      }}
+                    />
+                  </div>
+                )}
 
                 {/* Overlaid Target Bounding Box & HUD */}
                 <div className="absolute inset-0 flex flex-col justify-between p-3.5 pointer-events-none">
                   <div className="flex justify-between items-start">
                     <span className="text-[10px] font-mono bg-black/80 backdrop-blur px-2.5 py-1 rounded text-cyan-400 border border-cyan-500/30">
-                      SEC-CAM: {selectedEvidence.location} [YOLOv8 ByteTrack]
+                      SEC-CAM: {selectedEvidence.cameraId ? selectedEvidence.cameraId.toUpperCase() : selectedEvidence.location} [YOLOv8 ByteTrack]
                     </span>
                     <span
                       className={`text-[10px] font-mono font-bold px-2.5 py-1 rounded border ${
                         selectedEvidence.status === 'Violation'
                           ? 'bg-rose-950/90 text-rose-300 border-rose-500/40'
+                          : selectedEvidence.status === 'Paid'
+                          ? 'bg-emerald-950/90 text-emerald-300 border-emerald-500/40'
                           : 'bg-emerald-950/90 text-emerald-300 border-emerald-500/40'
                       }`}
                     >
@@ -1099,7 +1237,7 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
 
                   <div className="bg-black/80 backdrop-blur p-2.5 rounded-xl border border-slate-700 max-w-sm">
                     <div className="text-[11px] text-slate-300 font-mono">
-                      RECORDED SPEED: <strong className="text-white text-xs">{selectedEvidence.detectedSpeed} km/h</strong> (Limit: {selectedEvidence.speedLimit} km/h)
+                      RECORDED SPEED: <strong className="text-white text-xs">{selectedEvidence.detectedSpeed > 0 ? `${selectedEvidence.detectedSpeed} km/h` : 'N/A'}</strong> (Limit: {selectedEvidence.speedLimit} km/h)
                     </div>
                     <div className="text-[10px] text-slate-400 font-mono mt-0.5">
                       DELTA: <span className={selectedEvidence.difference > 0 ? 'text-rose-400 font-bold' : 'text-emerald-400'}>
@@ -1162,7 +1300,7 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
               <span className={`text-[11px] ${
                 isDarkMode ? 'text-slate-400' : 'text-slate-500'
               }`}>
-                Tamper-Proof SHA-256 Checksum: <code className={isDarkMode ? 'text-sky-400' : 'text-slate-700'}>e82a...91bc</code>
+                Citation Ref: <code className={isDarkMode ? 'text-sky-400 font-mono' : 'text-slate-700 font-mono'}>{selectedEvidence.fineId || selectedEvidence.id}</code>
               </span>
               <button
                 onClick={() => {
@@ -1198,7 +1336,7 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
                     Official Sri Lanka e-Challan Notice
                   </h3>
                   <span className="text-[11px] text-slate-400 font-mono">
-                    Ref: SL-TMC-2025-0616-{String(selectedChallan.id).padStart(4, '0')}
+                    Ref: {selectedChallan.fineId || selectedChallan.id}
                   </span>
                 </div>
               </div>
@@ -1227,7 +1365,7 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
                 <p className={`text-[11px] mt-0.5 ${
                   isDarkMode ? 'text-slate-400' : 'text-slate-500'
                 }`}>
-                  Sri Lanka Police Traffic Headquarters & Road Development Authority (RDA)
+                  {selectedChallan.policeStation || 'Sri Lanka Police Traffic Headquarters & Road Development Authority (RDA)'}
                 </p>
                 <span className={`inline-block mt-1.5 px-3 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider font-mono ${
                   isDarkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-200 text-slate-700'
@@ -1242,6 +1380,10 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
                   ? isDarkMode
                     ? 'bg-rose-950/50 border-rose-800/60 text-rose-300'
                     : 'bg-rose-50 border-rose-200 text-rose-800'
+                  : selectedChallan.status === 'Paid'
+                  ? isDarkMode
+                    ? 'bg-emerald-950/50 border-emerald-800/60 text-emerald-300'
+                    : 'bg-emerald-50 border-emerald-200 text-emerald-800'
                   : isDarkMode
                   ? 'bg-emerald-950/50 border-emerald-800/60 text-emerald-300'
                   : 'bg-emerald-50 border-emerald-200 text-emerald-800'
@@ -1256,11 +1398,15 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
                     <span className="text-xs font-bold block">
                       {selectedChallan.status === 'Violation'
                         ? 'Traffic Infringement Recorded'
+                        : selectedChallan.status === 'Paid'
+                        ? 'Citation Paid & Settled'
                         : 'Speed Compliance Verified'}
                     </span>
                     <span className="text-[11px] opacity-80">
                       {selectedChallan.status === 'Violation'
-                        ? `Recorded speed exceeded legal expressway limit by +${selectedChallan.difference} km/h`
+                        ? `Recorded speed exceeded legal limit by +${selectedChallan.difference} km/h`
+                        : selectedChallan.status === 'Paid'
+                        ? `Payment verified on ${selectedChallan.paidAt || 'database record'}`
                         : 'Vehicle observed within legal corridor speed limits'}
                     </span>
                   </div>
@@ -1354,7 +1500,7 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
                     }`}>SPEED LIMIT</span>
                     <span className={`text-xs font-bold ${
                       isDarkMode ? 'text-slate-300' : 'text-slate-700'
-                    }`}>{selectedChallan.speedLimit} km/h</span>
+                    }`}>{selectedChallan.speedLimit > 0 ? `${selectedChallan.speedLimit} km/h` : 'N/A'}</span>
                   </div>
                   <div className={`p-2 rounded-lg border ${
                     isDarkMode ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-100'
@@ -1364,7 +1510,7 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
                     }`}>DETECTED SPEED</span>
                     <span className={`text-xs font-black ${
                       isDarkMode ? 'text-white' : 'text-slate-900'
-                    }`}>{selectedChallan.detectedSpeed} km/h</span>
+                    }`}>{selectedChallan.detectedSpeed > 0 ? `${selectedChallan.detectedSpeed} km/h` : 'N/A'}</span>
                   </div>
                   <div className={`p-2 rounded-lg border ${
                     selectedChallan.difference > 0
@@ -1396,7 +1542,7 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
                   <p className={`text-[11px] max-w-xs ${
                     isDarkMode ? 'text-slate-400' : 'text-slate-500'
                   }`}>
-                    Pay online via LankaPay, Commercial Bank, or BOC online banking using this notice reference number.
+                    Pay online via LankaPay, Commercial Bank, or BOC online banking using citation reference #{selectedChallan.fineId || selectedChallan.id}.
                   </p>
                 </div>
                 <div className={`p-1.5 rounded-lg border ${
@@ -1433,8 +1579,9 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
           </div>
         </div>
       )}
+
       {/* ------------------------------------------------------------- */}
-      {/* 8. SAVE AUDIT REPORT MODAL (MATCHING USER TEMPLATE) */}
+      {/* 8. SAVE AUDIT REPORT MODAL */}
       {/* ------------------------------------------------------------- */}
       {showSaveAuditModal && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
@@ -1517,7 +1664,7 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
                 <label className={`block text-xs font-bold mb-1.5 ${
                   isDarkMode ? 'text-slate-300' : 'text-slate-700'
                 }`}>
-                  Highway
+                  Highway / Corridor
                 </label>
                 <div className="relative">
                   <Route className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 ${
@@ -1541,7 +1688,7 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
                 <label className={`block text-xs font-bold mb-2 ${
                   isDarkMode ? 'text-slate-300' : 'text-slate-700'
                 }`}>
-                  Report Summary
+                  Report Summary (From Database)
                 </label>
                 <div className="grid grid-cols-4 gap-2.5">
                   {/* Total Vehicles */}
@@ -1554,12 +1701,12 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
                     <span className={`text-[10px] block ${
                       isDarkMode ? 'text-slate-400' : 'text-slate-500'
                     }`}>
-                      Total Vehicles
+                      Total
                     </span>
                     <span className={`text-sm font-extrabold block mt-0.5 ${
                       isDarkMode ? 'text-white' : 'text-slate-900'
                     }`}>
-                      2,487
+                      {metrics.totalVehicles.toLocaleString()}
                     </span>
                   </div>
 
@@ -1573,12 +1720,12 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
                     <span className={`text-[10px] block ${
                       isDarkMode ? 'text-slate-400' : 'text-slate-500'
                     }`}>
-                      Speed Violations
+                      Violations
                     </span>
                     <span className={`text-sm font-extrabold block mt-0.5 ${
                       isDarkMode ? 'text-white' : 'text-slate-900'
                     }`}>
-                      312
+                      {metrics.speedViolations.toLocaleString()}
                     </span>
                   </div>
 
@@ -1597,11 +1744,11 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
                     <span className={`text-sm font-extrabold block mt-0.5 ${
                       isDarkMode ? 'text-white' : 'text-slate-900'
                     }`}>
-                      86
+                      {metrics.warnings.toLocaleString()}
                     </span>
                   </div>
 
-                  {/* Normal */}
+                  {/* Normal / Paid */}
                   <div className={`p-3 rounded-xl border text-center flex flex-col items-center justify-between transition-colors ${
                     isDarkMode ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-200 shadow-xs'
                   }`}>
@@ -1616,7 +1763,7 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
                     <span className={`text-sm font-extrabold block mt-0.5 ${
                       isDarkMode ? 'text-white' : 'text-slate-900'
                     }`}>
-                      2,089
+                      {metrics.normal.toLocaleString()}
                     </span>
                   </div>
                 </div>
@@ -1631,18 +1778,18 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
                 </label>
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-[#005a80] text-white flex items-center justify-center font-bold text-xs tracking-wider shadow-sm">
-                    RS
+                    TMC
                   </div>
                   <div>
                     <div className={`text-xs font-bold ${
                       isDarkMode ? 'text-white' : 'text-slate-900'
                     }`}>
-                      R. Senanayake
+                      TMC Operations Lead
                     </div>
                     <div className={`text-[11px] ${
                       isDarkMode ? 'text-slate-400' : 'text-slate-500'
                     }`}>
-                      TMC Administrator
+                      Traffic Management Center
                     </div>
                   </div>
                 </div>
@@ -1675,8 +1822,9 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
           </div>
         </div>
       )}
+
       {/* ------------------------------------------------------------- */}
-      {/* 9. EXPORT VIOLATION RECORDS MODAL (MATCHING USER TEMPLATE) */}
+      {/* 9. EXPORT VIOLATION RECORDS MODAL */}
       {/* ------------------------------------------------------------- */}
       {showExportModal && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
@@ -1728,7 +1876,7 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
                       onChange={() => setExportFormat('CSV')}
                       className="w-4 h-4 text-[#0066cc] accent-[#0066cc] cursor-pointer"
                     />
-                    <span className={isDarkMode ? 'text-slate-200' : 'text-slate-700'}>CSV</span>
+                    <span className={isDarkMode ? 'text-slate-200' : 'text-slate-700'}>CSV (Excel Compatible)</span>
                   </label>
                   <label className="flex items-center gap-2.5 cursor-pointer">
                     <input
@@ -1739,7 +1887,7 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
                       onChange={() => setExportFormat('PDF')}
                       className="w-4 h-4 text-[#0066cc] accent-[#0066cc] cursor-pointer"
                     />
-                    <span className={isDarkMode ? 'text-slate-200' : 'text-slate-700'}>PDF</span>
+                    <span className={isDarkMode ? 'text-slate-200' : 'text-slate-700'}>PDF Document (Official A4 Format)</span>
                   </label>
                 </div>
               </div>
@@ -1749,7 +1897,7 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
                 <label className={`block font-bold mb-2.5 ${
                   isDarkMode ? 'text-slate-300' : 'text-slate-800'
                 }`}>
-                  Records
+                  Records Scope
                 </label>
                 <div className="space-y-2">
                   <label className="flex items-center gap-2.5 cursor-pointer">
@@ -1762,7 +1910,7 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
                       className="w-4 h-4 text-[#0066cc] accent-[#0066cc] cursor-pointer"
                     />
                     <span className={isDarkMode ? 'text-slate-200' : 'text-slate-700'}>
-                      All filtered records — <strong>2,487</strong>
+                      All filtered records — <strong>{filteredData.length.toLocaleString()}</strong>
                     </span>
                   </label>
                   <label className="flex items-center gap-2.5 cursor-pointer">
@@ -1775,7 +1923,7 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
                       className="w-4 h-4 text-[#0066cc] accent-[#0066cc] cursor-pointer"
                     />
                     <span className={isDarkMode ? 'text-slate-200' : 'text-slate-700'}>
-                      Violations only — <strong>312</strong>
+                      Violations only — <strong>{filteredData.filter(i => i.status === 'Violation').length.toLocaleString()}</strong>
                     </span>
                   </label>
                   <label className="flex items-center gap-2.5 cursor-pointer">
@@ -1788,7 +1936,7 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
                       className="w-4 h-4 text-[#0066cc] accent-[#0066cc] cursor-pointer"
                     />
                     <span className={isDarkMode ? 'text-slate-200' : 'text-slate-700'}>
-                      Current page — <strong>10</strong>
+                      Current page — <strong>{pagedData.length}</strong>
                     </span>
                   </label>
                 </div>
@@ -1799,9 +1947,19 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
                 <label className={`block font-bold mb-2.5 ${
                   isDarkMode ? 'text-slate-300' : 'text-slate-800'
                 }`}>
-                  Include
+                  Include Fields
                 </label>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
+                  <label className="flex items-center gap-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={exportColumns.fineId}
+                      onChange={(e) => setExportColumns(prev => ({ ...prev, fineId: e.target.checked }))}
+                      className="w-4 h-4 rounded text-[#0066cc] accent-[#0066cc] cursor-pointer"
+                    />
+                    <span className={isDarkMode ? 'text-slate-200' : 'text-slate-700'}>Fine ID</span>
+                  </label>
+
                   <label className="flex items-center gap-2.5 cursor-pointer">
                     <input
                       type="checkbox"
@@ -1809,7 +1967,17 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
                       onChange={(e) => setExportColumns(prev => ({ ...prev, plate: e.target.checked }))}
                       className="w-4 h-4 rounded text-[#0066cc] accent-[#0066cc] cursor-pointer"
                     />
-                    <span className={isDarkMode ? 'text-slate-200' : 'text-slate-700'}>Vehicle / Plate Number</span>
+                    <span className={isDarkMode ? 'text-slate-200' : 'text-slate-700'}>Vehicle Plate</span>
+                  </label>
+
+                  <label className="flex items-center gap-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={exportColumns.camera}
+                      onChange={(e) => setExportColumns(prev => ({ ...prev, camera: e.target.checked }))}
+                      className="w-4 h-4 rounded text-[#0066cc] accent-[#0066cc] cursor-pointer"
+                    />
+                    <span className={isDarkMode ? 'text-slate-200' : 'text-slate-700'}>Camera / Track ID</span>
                   </label>
 
                   <label className="flex items-center gap-2.5 cursor-pointer">
@@ -1855,31 +2023,11 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
                   <label className="flex items-center gap-2.5 cursor-pointer">
                     <input
                       type="checkbox"
-                      checked={exportColumns.difference}
-                      onChange={(e) => setExportColumns(prev => ({ ...prev, difference: e.target.checked }))}
-                      className="w-4 h-4 rounded text-[#0066cc] accent-[#0066cc] cursor-pointer"
-                    />
-                    <span className={isDarkMode ? 'text-slate-200' : 'text-slate-700'}>Difference</span>
-                  </label>
-
-                  <label className="flex items-center gap-2.5 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={exportColumns.lane}
-                      onChange={(e) => setExportColumns(prev => ({ ...prev, lane: e.target.checked }))}
-                      className="w-4 h-4 rounded text-[#0066cc] accent-[#0066cc] cursor-pointer"
-                    />
-                    <span className={isDarkMode ? 'text-slate-200' : 'text-slate-700'}>Lane</span>
-                  </label>
-
-                  <label className="flex items-center gap-2.5 cursor-pointer">
-                    <input
-                      type="checkbox"
                       checked={exportColumns.status}
                       onChange={(e) => setExportColumns(prev => ({ ...prev, status: e.target.checked }))}
                       className="w-4 h-4 rounded text-[#0066cc] accent-[#0066cc] cursor-pointer"
                     />
-                    <span className={isDarkMode ? 'text-slate-200' : 'text-slate-700'}>Violation Status</span>
+                    <span className={isDarkMode ? 'text-slate-200' : 'text-slate-700'}>Status</span>
                   </label>
                 </div>
               </div>
@@ -1964,20 +2112,19 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
             </div>
 
             {/* Preview Modal Body (Scrollable A4 document container) */}
-            {/* Preview Modal Body (Scrollable A4 document container) */}
             <div className="flex-1 overflow-y-auto p-6 bg-slate-500/20 flex justify-center">
               <AuditReportPdfTemplate
                 id="audit-report-pdf-preview"
-                reportId="RPT-2025-06-16-0001"
-                reportName={reportName || 'E01 Speed Audit - 16 Jun 2025'}
-                highway={selectedHighway || 'E01 Southern Expressway'}
-                dateRange={dateTimeRange || '2025-06-16 00:00:00 to 2025-06-16 23:59:59'}
+                reportId={`RPT-${new Date().toISOString().slice(0, 10)}-${String(records.length).padStart(4, '0')}`}
+                reportName={reportName || 'Speed Violation Audit Report'}
+                highway={selectedHighway || 'All Corridors'}
+                dateRange={dateTimeRange || 'Persistent Records'}
                 generatedOn={new Date().toISOString().replace('T', ' ').substring(0, 19)}
-                generatedBy="R. Senanayake (Operations Lead)"
-                totalVehicles={2487}
-                speedViolations={312}
-                warnings={86}
-                averageSpeed={82}
+                generatedBy="TMC Operations Lead"
+                totalVehicles={metrics.totalVehicles}
+                speedViolations={metrics.speedViolations}
+                warnings={metrics.warnings}
+                averageSpeed={metrics.averageSpeed}
                 records={filteredData}
               />
             </div>
@@ -2002,16 +2149,16 @@ export default function SpeedViolationAuditTab({ isDarkMode = true, onNotificati
       >
         <AuditReportPdfTemplate
           id="audit-report-pdf-root"
-          reportId="RPT-2025-06-16-0001"
-          reportName={reportName || 'E01 Speed Audit - 16 Jun 2025'}
-          highway={selectedHighway || 'E01 Southern Expressway'}
-          dateRange={dateTimeRange || '2025-06-16 00:00:00 to 2025-06-16 23:59:59'}
-          generatedOn="2025-06-16 13:39:56"
-          generatedBy="R. Senanayake (Operations Lead)"
-          totalVehicles={2487}
-          speedViolations={312}
-          warnings={86}
-          averageSpeed={82}
+          reportId={`RPT-${new Date().toISOString().slice(0, 10)}-${String(records.length).padStart(4, '0')}`}
+          reportName={reportName || 'Speed Violation Audit Report'}
+          highway={selectedHighway || 'All Corridors'}
+          dateRange={dateTimeRange || 'Persistent Records'}
+          generatedOn={new Date().toISOString().replace('T', ' ').substring(0, 19)}
+          generatedBy="TMC Operations Lead"
+          totalVehicles={metrics.totalVehicles}
+          speedViolations={metrics.speedViolations}
+          warnings={metrics.warnings}
+          averageSpeed={metrics.averageSpeed}
           records={filteredData}
         />
       </div>

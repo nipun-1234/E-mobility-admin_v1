@@ -211,6 +211,14 @@ class RealtimeClient {
   _handleMessage(payload) {
     if (!payload) return;
 
+    // Handle direct live violation push events
+    if (payload.type === 'VIOLATION_EVENT') {
+      const vio = payload.violation || payload;
+      for (const cb of this.subscribers.violation) {
+        cb(vio);
+      }
+    }
+
     // Handle telemetry updates
     this.lastTelemetry = payload;
     for (const cb of this.subscribers.telemetry) {

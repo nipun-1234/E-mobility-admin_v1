@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { realtimeClient } from '../services/realtime.client';
+import { cameraService } from '../services/camera.service';
 import {
   Sliders,
   Gauge,
@@ -102,6 +103,42 @@ export default function SettingsSection({
   const [ocrBenchmarkResult, setOcrBenchmarkResult] = useState(null);
   const [isOcrRunning, setIsOcrRunning] = useState(false);
 
+  // PostgreSQL Per-Camera Speed Limits State
+  const [cameras, setCameras] = useState([]);
+  const [loadingCameras, setLoadingCameras] = useState(false);
+  const [cameraLimitUpdating, setCameraLimitUpdating] = useState({});
+
+  useEffect(() => {
+    fetchCameras();
+  }, []);
+
+  const fetchCameras = async () => {
+    setLoadingCameras(true);
+    try {
+      const res = await cameraService.getCameras();
+      if (res && res.cameras) {
+        setCameras(res.cameras);
+      }
+    } catch (err) {
+      console.warn('Could not load camera speed limits from backend:', err);
+    } finally {
+      setLoadingCameras(false);
+    }
+  };
+
+  const handleUpdateCameraSpeed = async (camId, newLimit) => {
+    setCameraLimitUpdating(prev => ({ ...prev, [camId]: true }));
+    try {
+      const res = await cameraService.updateCameraSpeedLimit(camId, newLimit);
+      setCameras(prev => prev.map(c => (c.camId === camId || c.id === camId ? { ...c, speedLimit: Number(newLimit) } : c)));
+      addNotification(`🎯 ${camId.toUpperCase()} speed limit updated to ${newLimit} km/h (PostgreSQL & AI synced).`);
+    } catch (err) {
+      alert(`Failed to update speed limit: ${err.message || 'Check permissions'}`);
+    } finally {
+      setCameraLimitUpdating(prev => ({ ...prev, [camId]: false }));
+    }
+  };
+
   // Update setting helper with instant live synchronization
   const updateSetting = (key, value) => {
     setSettings(prev => {
@@ -127,6 +164,7 @@ export default function SettingsSection({
 
     // Broadcast speed limit across all camera nodes immediately
     realtimeClient.setSpeedLimit(settings.speedLimit);
+    cameraService.updateAllSpeedLimits(settings.speedLimit).catch(() => {});
 
     setTimeout(() => {
       try {
@@ -586,6 +624,87 @@ export default function SettingsSection({
                   >
                     {settings.strictEnforcement ? 'ACTIVE (24/7)' : 'STANDBY'}
                   </button>
+                </div>
+
+                {/* PostgreSQL Per-Camera Speed Limit Grid */}
+                <div className={`p-4 rounded-xl border ${isDarkMode ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-50 border-slate-200'} space-y-3`}>
+                  <div className="flex flex-wrap justify-between items-center pb-2 border-b border-slate-800/60">
+                    <div>
+                      <h5 className={`text-sm font-bold ${isDarkMode ? 'text-slate-200' : 'text-slate-800'} flex items-center space-x-2`}>
+                        <SlidersHorizontal size={15} className="text-amber-400" />
+                        <span>Per-Camera Speed Limits (PostgreSQL Persisted)</span>
+                      </h5>
+                      <p className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                        Configure and hot-sync individual statutory speed limits across all 8 active expressway CCTV checkpoints.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={fetchCameras}
+                      disabled={loadingCameras}
+                      className="px-2.5 py-1 text-xs rounded-lg border border-slate-700 bg-slate-800 text-slate-300 hover:text-white flex items-center space-x-1"
+                    >
+                      <RefreshCw size={12} className={loadingCameras ? 'animate-spin' : ''} />
+                      <span>Sync DB</span>
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                    {(cameras && cameras.length > 0 ? cameras : [
+                      { id: 1, camId: 'cam_01', name: 'Cam-01 (Southern Expy Km 68.4)', location: 'Pinnaduwa', speedLimit: 100 },
+                      { id: 2, camId: 'cam_02', name: 'Cam-02 (Outer Circular Km 14.2)', location: 'Kadawatha', speedLimit: 100 },
+                      { id: 3, camId: 'cam_03', name: 'Cam-03 (Katunayake Expy Km 8.5)', location: 'Peliyagoda', speedLimit: 100 },
+                      { id: 4, camId: 'cam_04', name: 'Cam-04 (Central Expy Km 22.1)', location: 'Mirigama', speedLimit: 100 },
+                      { id: 5, camId: 'cam_05', name: 'Cam-05 (Southern Expy Km 34.8)', location: 'Dodangoda', speedLimit: 100 },
+                      { id: 6, camId: 'cam_06', name: 'Cam-06 (Outer Circular Km 8.1)', location: 'Kaduwela', speedLimit: 100 },
+                      { id: 7, camId: 'cam_07', name: 'Cam-07 (Katunayake Expy Km 19.4)', location: 'Ja-Ela', speedLimit: 100 },
+                      { id: 8, camId: 'cam_08', name: 'Cam-08 (Central Expy Km 39.5)', location: 'Kurunegala', speedLimit: 100 }
+                    ]).map((cam) => (
+                      <div
+                        key={cam.camId || cam.id}
+                        className={`p-3 rounded-lg border flex items-center justify-between ${
+                          isDarkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200'
+                        }`}
+                      >
+                        <div className="min-w-0 pr-2">
+                          <div className="flex items-center space-x-1.5">
+                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 font-bold border border-blue-500/20">
+                              {(cam.camId || `cam_0${cam.id}`).toUpperCase()}
+                            </span>
+                            <span className={`text-xs font-bold truncate ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
+                              {cam.name || cam.location}
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-slate-400 mt-0.5 truncate">{cam.location}</p>
+                        </div>
+
+                        <div className="flex items-center space-x-2 flex-shrink-0">
+                          <div className="flex items-center space-x-1">
+                            <select
+                              value={cam.speedLimit || 100}
+                              disabled={cameraLimitUpdating[cam.camId || cam.id]}
+                              onChange={(e) => handleUpdateCameraSpeed(cam.camId || cam.id, e.target.value)}
+                              className={`px-2 py-1 rounded-lg text-xs font-mono font-bold border outline-none cursor-pointer ${
+                                isDarkMode ? 'bg-slate-950 border-slate-700 text-amber-400' : 'bg-slate-100 border-slate-300 text-slate-900'
+                              }`}
+                            >
+                              <option value="60">60 km/h</option>
+                              <option value="70">70 km/h</option>
+                              <option value="80">80 km/h</option>
+                              <option value="90">90 km/h</option>
+                              <option value="100">100 km/h</option>
+                              <option value="110">110 km/h</option>
+                              <option value="120">120 km/h</option>
+                            </select>
+                            <span className="text-[10px] font-bold text-slate-400">km/h</span>
+                          </div>
+                          {cameraLimitUpdating[cam.camId || cam.id] && (
+                            <RefreshCw size={12} className="animate-spin text-amber-400" />
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>

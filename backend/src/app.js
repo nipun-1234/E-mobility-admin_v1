@@ -1,10 +1,15 @@
 import express from 'express';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { corsMiddleware } from './middleware/cors.middleware.js';
 import { requestLogger } from './middleware/logger.middleware.js';
 import { errorHandler, notFoundHandler } from './middleware/error.middleware.js';
 import apiRouter from './routes/index.js';
 import { isPostgresConnected } from './config/db.js';
 import { config } from './config/env.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 
@@ -13,6 +18,9 @@ app.use(corsMiddleware);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(requestLogger);
+
+// Static Uploads & Evidence Serving
+app.use('/uploads', express.static(path.resolve(__dirname, '../../uploads')));
 
 // Root Welcome / Interactive API Status Page
 app.get('/', (req, res) => {

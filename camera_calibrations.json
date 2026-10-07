@@ -2,7 +2,7 @@
   "cam_01": {
     "name": "Cam-01 (Southern Expy Km 68.4)",
     "location": "Pinnaduwa Interchange",
-    "speed_limit_kmh": 100.0,
+    "speed_limit_kmh": 70.0,
     "width_m": 10.5,
     "length_m": 45.0,
     "image_pts": [

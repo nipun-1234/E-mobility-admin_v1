@@ -1,37 +1,8 @@
 import { pool, isPostgresConnected } from '../config/db.js';
 import { storageService, PHOTO_RETENTION_MS } from './storage.service.js';
 
-// Fallback in-memory store for login audits
-let memoryAudits = [
-  {
-    id: 1,
-    user_id: 5,
-    user_name: 'Nipun Sudusinghe',
-    user_email: 'nipunsudusinghe523@gmail.com',
-    role: 'admin',
-    ip_address: '192.168.1.104',
-    device_info: 'Chrome 122.0.0 (Windows NT 10.0; Win64; x64)',
-    login_status: 'SUCCESS',
-    verification_status: 'VERIFIED',
-    photo_filename: null,
-    timestamp: new Date(Date.now() - 35 * 60 * 1000).toISOString(),
-    expires_at: new Date(Date.now() - 35 * 60 * 1000 + PHOTO_RETENTION_MS).toISOString()
-  },
-  {
-    id: 2,
-    user_id: 2,
-    user_name: 'Admin Commander',
-    user_email: 'admin@example.com',
-    role: 'admin',
-    ip_address: '192.168.1.115',
-    device_info: 'Firefox 123.0 (Windows NT 10.0; Win64; x64)',
-    login_status: 'SUCCESS',
-    verification_status: 'VERIFIED',
-    photo_filename: null,
-    timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-    expires_at: new Date(Date.now() - 2 * 60 * 60 * 1000 + PHOTO_RETENTION_MS).toISOString()
-  }
-];
+// In-memory store for login audits (empty by default)
+let memoryAudits = [];
 
 let nextAuditId = 3;
 
@@ -108,8 +79,8 @@ export const auditService = {
         const res = await pool.query(query, [limit, offset]);
         records = res.rows;
       } catch (err) {
-        console.warn('⚠️ [AUDIT] DB read failed, using in-memory store:', err.message);
-        records = [...memoryAudits];
+        console.warn('⚠️ [AUDIT] DB read failed:', err.message);
+        records = [];
       }
     } else {
       records = [...memoryAudits];

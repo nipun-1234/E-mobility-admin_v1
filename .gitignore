@@ -70,3 +70,6 @@ desktop.ini
 # Test outputs
 coverage/
 .nyc_output/
+ 
+uploads/
+*.timestamp-*.mjs

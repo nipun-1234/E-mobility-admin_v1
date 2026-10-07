@@ -13,9 +13,11 @@ import sys
 import time
 import threading
 import json
+import queue
+import requests
 import cv2
 import numpy as np
-from flask import Flask, Response, jsonify, request
+from flask import Flask, Response, jsonify, request, send_from_directory
 from flask_cors import CORS
 from flask_sock import Sock
 from ai_traffic_monitor import TrafficMonitor
@@ -25,12 +27,65 @@ CORS(app)
 sock = Sock(app)
 
 VIDEO_PATH = os.environ.get('VIDEO_PATH', 'expressway_traffic.mp4')
+BACKEND_API_URL = os.environ.get('BACKEND_API_URL', 'http://localhost:5000')
+AI_SERVICE_API_KEY = os.environ.get('AI_SERVICE_API_KEY', 'ai_sec_key_emobility_2026_dev_v1')
+
+UPLOADS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads', 'violations')
+PLATES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads', 'plates')
+os.makedirs(UPLOADS_DIR, exist_ok=True)
+os.makedirs(PLATES_DIR, exist_ok=True)
 
 workers = {}
 workers_lock = threading.Lock()
 connected_websockets = set()
 ws_lock = threading.Lock()
 current_global_speed_limit = 100.0
+
+violation_dispatch_queue = queue.Queue(maxsize=1000)
+
+def _violation_dispatcher_worker():
+    """Asynchronous background worker dispatching speeding violations to backend PostgreSQL"""
+    session = requests.Session()
+    print("🚀 [AI DISPATCHER] Background violation persistence thread started.")
+    while True:
+        try:
+            item = violation_dispatch_queue.get()
+            if item is None:
+                break
+            payload, retry_count = item
+            target_url = f"{BACKEND_API_URL.rstrip('/')}/api/fines/violations"
+            headers = {
+                'Content-Type': 'application/json',
+                'X-AI-Service-Key': AI_SERVICE_API_KEY,
+                'User-Agent': 'E-Mobility-AI-Vision-Engine/1.0'
+            }
+            try:
+                resp = session.post(target_url, json=payload, headers=headers, timeout=5.0)
+                if resp.status_code in (200, 201):
+                    print(f"✅ [AI DISPATCHER] Violation {payload.get('violationId')} persisted in PostgreSQL (HTTP {resp.status_code})")
+                elif resp.status_code == 400 and 'already exists' in resp.text.lower():
+                    print(f"ℹ️ [AI DISPATCHER] Violation {payload.get('violationId')} already registered in DB.")
+                else:
+                    print(f"⚠️ [AI DISPATCHER] Backend returned status {resp.status_code}: {resp.text[:120]}")
+                    if retry_count < 3:
+                        time.sleep(1.0 * (retry_count + 1))
+                        violation_dispatch_queue.put((payload, retry_count + 1))
+            except requests.RequestException as req_err:
+                print(f"⚠️ [AI DISPATCHER] Backend offline/unreachable ({req_err.__class__.__name__}). Retrying ({retry_count}/3)...")
+                if retry_count < 3:
+                    time.sleep(1.5 * (retry_count + 1))
+                    violation_dispatch_queue.put((payload, retry_count + 1))
+        except Exception as e:
+            print(f"❌ [AI DISPATCHER ERROR]: {e}")
+        finally:
+            try:
+                violation_dispatch_queue.task_done()
+            except ValueError:
+                pass
+
+# Launch persistent background worker
+dispatcher_thread = threading.Thread(target=_violation_dispatcher_worker, daemon=True, name="ViolationDispatcher")
+dispatcher_thread.start()
 
 CAMERA_MAP = {
     'cam_01': {'file': 'camera_01_feed.mp4', 'fallback': 'expressway_traffic.mp4', 'name': 'Cam-01 (Southern Expy Km 68.4)', 'location': 'Pinnaduwa Interchange'},
@@ -56,7 +111,12 @@ class CameraStreamWorker:
 
         self.video_file = video_file
         self.monitor = TrafficMonitor(video_path=video_file, camera_id=cam_id)
-        if current_global_speed_limit:
+        self.monitor.on_violation_callback = self._handle_violation
+
+        # Preserve camera-specific calibration speed limit if set, fallback to global
+        if hasattr(self.monitor, 'speed_limit') and self.monitor.speed_limit is not None and self.monitor.speed_limit > 0:
+            pass
+        elif current_global_speed_limit:
             self.monitor.speed_limit = float(current_global_speed_limit)
 
         self.latest_jpeg = None
@@ -73,6 +133,82 @@ class CameraStreamWorker:
 
         self.thread = threading.Thread(target=self._update_loop, daemon=True)
         self.thread.start()
+
+    def _handle_violation(self, vio_record, frame):
+        """Dispatches confirmed speeding violation asynchronously to PostgreSQL and live WebSockets"""
+        try:
+            v_id = f"FINE-{int(time.time())}-{self.cam_id.upper()}-T{vio_record.get('track_id', 1)}"
+            
+            # 1. Save violation full frame snapshot
+            snapshot_name = f"{v_id}.jpg"
+            snapshot_path = os.path.join(UPLOADS_DIR, snapshot_name)
+            evidence_url = None
+            if frame is not None:
+                try:
+                    cv2.imwrite(snapshot_path, frame, [cv2.IMWRITE_JPEG_QUALITY, 75])
+                    evidence_url = f"/uploads/violations/{snapshot_name}"
+                except Exception as img_err:
+                    print(f"[{self.cam_id}] Snapshot write error: {img_err}")
+
+            # 2. Save plate crop evidence
+            plate_crop_url = None
+            plate_crop = vio_record.get('plate_crop')
+            if plate_crop is None and frame is not None and 'vehicle_box' in vio_record:
+                bx1, by1, bx2, by2 = vio_record['vehicle_box']
+                bh, bw = by2 - by1, bx2 - bx1
+                py1 = max(0, by1 + int(bh * 0.50))
+                py2 = min(frame.shape[0], by1 + int(bh * 0.98))
+                px1 = max(0, bx1 + int(bw * 0.10))
+                px2 = min(frame.shape[1], bx1 + int(bw * 0.90))
+                if py2 > py1 and px2 > px1:
+                    plate_crop = frame[py1:py2, px1:px2]
+
+            if plate_crop is not None and getattr(plate_crop, 'size', 0) > 0:
+                plate_crop_name = f"{v_id}_plate.jpg"
+                plate_crop_path = os.path.join(PLATES_DIR, plate_crop_name)
+                try:
+                    cv2.imwrite(plate_crop_path, plate_crop, [cv2.IMWRITE_JPEG_QUALITY, 85])
+                    plate_crop_url = f"/uploads/plates/{plate_crop_name}"
+                except Exception as p_err:
+                    print(f"[{self.cam_id}] Plate crop write error: {p_err}")
+
+            payload = {
+                'violationId': v_id,
+                'cameraId': self.cam_id,
+                'trackingId': vio_record.get('track_id'),
+                'plate': vio_record.get('plate'),
+                'plate_raw_text': vio_record.get('plate_raw_text'),
+                'plate_confidence': vio_record.get('plate_confidence', 0.0),
+                'plate_status': vio_record.get('plate_status', 'UNREAD'),
+                'vehicleClass': vio_record.get('vehicle_class', 'Vehicle'),
+                'speed_kmh': vio_record.get('speed_kmh'),
+                'limit_kmh': vio_record.get('limit_kmh'),
+                'lane': vio_record.get('lane'),
+                'timestamp': vio_record.get('timestamp'),
+                'location': CAMERA_MAP.get(self.cam_id, {}).get('name', 'Expressway Corridor'),
+                'evidenceImageUrl': evidence_url,
+                'plateCropUrl': plate_crop_url
+            }
+
+            if not violation_dispatch_queue.full():
+                violation_dispatch_queue.put_nowait((payload, 0))
+
+            # Immediate WebSocket live push
+            ws_msg = json.dumps({
+                'type': 'VIOLATION_EVENT',
+                'violation': payload
+            })
+            with ws_lock:
+                dead_socks = set()
+                for s in list(connected_websockets):
+                    try:
+                        s.send(ws_msg)
+                    except Exception:
+                        dead_socks.add(s)
+                for s in dead_socks:
+                    connected_websockets.discard(s)
+        except Exception as e:
+            print(f"[{self.cam_id}] Violation dispatch error: {e}")
 
     def add_viewer(self):
         with self.lock:
@@ -204,6 +340,38 @@ def update_global_speed_limit(new_limit):
         print("Failed to update global speed limit:", e)
         return False
 
+def update_camera_speed_limit(cam_id, new_limit):
+    """Dynamically applies a new speed limit to a specific camera worker without full restart"""
+    try:
+        new_limit = float(new_limit)
+        if new_limit < 30 or new_limit > 200:
+            return False, f"Invalid speed limit {new_limit}. Must be between 30 and 200 km/h."
+
+        with workers_lock:
+            worker = workers.get(cam_id)
+            if worker and worker.monitor:
+                worker.monitor.speed_limit = new_limit
+                if hasattr(worker.monitor, 'calib_config') and worker.monitor.calib_config:
+                    worker.monitor.calib_config['speed_limit_kmh'] = new_limit
+
+        # Persist across master calibrations file
+        if os.path.exists("camera_calibrations.json"):
+            try:
+                with open("camera_calibrations.json", "r") as f:
+                    master = json.load(f)
+                if cam_id in master:
+                    master[cam_id]["speed_limit_kmh"] = new_limit
+                    with open("camera_calibrations.json", "w") as f:
+                        json.dump(master, f, indent=2)
+            except Exception as e:
+                print(f"Error saving camera_calibrations.json for {cam_id}:", e)
+
+        print(f"🎯 [SPEED LIMIT SYNC] Updated [{cam_id}] speed limit to {new_limit} km/h in real-time!")
+        return True, f"Speed limit for {cam_id} successfully updated to {new_limit} km/h"
+    except Exception as e:
+        print(f"Failed to update speed limit for {cam_id}:", e)
+        return False, str(e)
+
 def generate_mjpeg_stream(cam_id="cam_01"):
     worker = get_worker(cam_id)
     worker.add_viewer()
@@ -235,6 +403,16 @@ def camera_snapshot(cam_id):
             headers={'Cache-Control': 'no-cache, no-store, must-revalidate'}
         )
     return ('Camera frame not ready', 503)
+
+@app.route('/uploads/violations/<path:filename>')
+def serve_violation_snapshot(filename):
+    """Serves recorded violation snapshot images"""
+    return send_from_directory(UPLOADS_DIR, filename)
+
+@app.route('/uploads/plates/<path:filename>')
+def serve_plate_snapshot(filename):
+    """Serves recorded license plate crop images"""
+    return send_from_directory(PLATES_DIR, filename)
 
 def build_telemetry_payload():
     total_tracks = 0
@@ -416,6 +594,38 @@ def set_speed_limit():
 
     return jsonify({'error': 'Missing speedLimit parameter in request body'}), 400
 
+@app.route('/api/config/camera_speed_limit', methods=['POST'])
+@app.route('/api/config/camera_speed_limit/<cam_id>', methods=['POST', 'GET'])
+def set_camera_speed_limit(cam_id=None):
+    """Dynamically sets speed limit for a specific camera worker without restart"""
+    if request.method == 'GET':
+        target_id = cam_id or request.args.get('cam_id') or request.args.get('cameraId')
+        if not target_id:
+            return jsonify({'error': 'Missing camera ID'}), 400
+        w = get_worker(target_id)
+        return jsonify({
+            'success': True,
+            'camId': target_id,
+            'speedLimit': w.monitor.speed_limit if w.monitor else 100.0
+        })
+
+    data = request.get_json(force=True, silent=True) or {}
+    target_id = cam_id or data.get('cameraId') or data.get('cam_id') or data.get('id') or request.args.get('cam_id')
+    lim = data.get('speedLimit') or data.get('speed_limit_kmh') or data.get('speed_limit') or data.get('limit') or request.args.get('limit')
+
+    if not target_id:
+        return jsonify({'success': False, 'error': 'Missing cameraId parameter'}), 400
+    if lim is None:
+        return jsonify({'success': False, 'error': 'Missing speedLimit parameter'}), 400
+
+    ok, msg = update_camera_speed_limit(target_id, lim)
+    return jsonify({
+        'success': ok,
+        'camId': target_id,
+        'speedLimit': float(lim) if ok else None,
+        'message': msg
+    }), (200 if ok else 400)
+
 @app.route('/video_feed/<cam_id>')
 def video_feed(cam_id):
     """Zero-lag MJPEG stream endpoint for frontend video tags"""
@@ -456,6 +666,31 @@ def get_incidents():
 
     combined.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
     return jsonify({'incidents': combined[:30]})
+
+@app.route('/uploads/violations/<path:filename>')
+def serve_violation_image(filename):
+    """Serves high-resolution camera violation snapshot images"""
+    return send_from_directory(UPLOADS_DIR, filename)
+
+@app.route('/uploads/plates/<path:filename>')
+def serve_plate_image(filename):
+    """Serves localized ANPR license plate crop images"""
+    return send_from_directory(PLATES_DIR, filename)
+
+@app.route('/uploads/<path:filename>')
+def serve_uploads_file(filename):
+    """Serves general uploads"""
+    base_uploads = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
+    return send_from_directory(base_uploads, filename)
+
+@app.route('/speed_cam_vehicle.png')
+def serve_fallback_speed_cam():
+    """Serves default fallback camera vehicle image"""
+    root_dir = os.path.dirname(os.path.abspath(__file__))
+    pub_path = os.path.join(root_dir, 'e-mobility-admin', 'public')
+    if os.path.exists(os.path.join(pub_path, 'speed_cam_vehicle.png')):
+        return send_from_directory(pub_path, 'speed_cam_vehicle.png')
+    return send_from_directory(root_dir, 'speed_cam_vehicle.png')
 
 @app.route('/api/cameras/health')
 def get_camera_health():

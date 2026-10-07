@@ -114,8 +114,17 @@ export async function initDatabase() {
         speed_limit VARCHAR(20),
         officer_badge VARCHAR(100),
         receipt_no VARCHAR(50),
-        paid_at TIMESTAMP
+        paid_at TIMESTAMP,
+        camera_id VARCHAR(50),
+        tracking_id VARCHAR(50),
+        evidence_image_url TEXT
       );
+
+      ALTER TABLE fines ADD COLUMN IF NOT EXISTS camera_id VARCHAR(50);
+      ALTER TABLE fines ADD COLUMN IF NOT EXISTS tracking_id VARCHAR(50);
+      ALTER TABLE fines ADD COLUMN IF NOT EXISTS evidence_image_url TEXT;
+      CREATE INDEX IF NOT EXISTS idx_fines_camera_id ON fines (camera_id);
+      CREATE INDEX IF NOT EXISTS idx_fines_tracking_id ON fines (tracking_id);
 
       CREATE TABLE IF NOT EXISTS disputes (
         id VARCHAR(50) PRIMARY KEY,
@@ -281,5 +290,5 @@ async function importCsvToDatabase(client) {
 }
 
 export function isPostgresConnected() {
-  return isDbConnected;
+  return isDbConnected || (pool && pool.totalCount > 0);
 }

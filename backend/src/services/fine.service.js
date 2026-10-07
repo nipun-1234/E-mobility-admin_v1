@@ -139,9 +139,14 @@ function formatFineRow(r) {
   const dateFormatted = dateObj.toISOString().split('T')[0];
   const dateTimeFormatted = dateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) + ', 14:32:05';
 
+  const hasPlate = Boolean(r.vehicle_plate && r.vehicle_plate !== 'UNREAD' && r.vehicle_plate !== 'null');
+  const plateText = hasPlate ? r.vehicle_plate : (r.plate_status === 'UNREAD' || !r.vehicle_plate ? 'UNREAD' : r.vehicle_plate);
+  const plateConf = r.plate_confidence !== undefined && r.plate_confidence !== null ? parseFloat(r.plate_confidence) : (r.anpr_match ? parseFloat(r.anpr_match) : (hasPlate ? 0.95 : 0));
+  const statusPlate = r.plate_status || (hasPlate ? 'VALID' : 'UNREAD');
+
   return {
     id: r.id,
-    citationNo: r.id.startsWith('TX-') ? r.id : `#${r.id}`,
+    citationNo: r.id.startsWith('TX-') || r.id.startsWith('FINE-') ? r.id : `#${r.id}`,
     policeStation: r.police_station || 'Expressway Traffic Division',
     offence: r.offence || 'Traffic Violation',
     date: dateFormatted,
@@ -149,30 +154,38 @@ function formatFineRow(r) {
     dueDate: r.due_date ? (typeof r.due_date === 'string' ? r.due_date : new Date(r.due_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })) : '25 Mar 2026',
     amount: parseInt(r.amount, 10) || 3850,
     demeritPoints: r.demerit_points || 0,
-    vehiclePlate: r.vehicle_plate || 'WP CAB-4521',
+    vehiclePlate: plateText,
+    plateRawText: r.plate_raw_text || null,
+    plateConfidence: plateConf,
+    plateStatus: statusPlate,
+    plateCropUrl: r.plate_crop_url || null,
     status: r.status === 'Paid' ? 'Paid' : (r.status === 'Disputed' ? 'Disputed' : 'Unpaid'),
     dueDays: r.due_days !== undefined ? r.due_days : 14,
     locationCoords: r.location_coords || '6.0329° N, 80.2168° E (Km 68.4 Southern Expressway)',
     location: r.police_station?.includes('Southern') ? 'Southern Expressway KM 68.4' : (r.location_coords?.split('(')[1]?.replace(')', '') || 'Highway Grid'),
-    camera: r.police_station?.includes('Southern') ? 'CAM-07 • SOUTHERN EXPY KM 68.4' : (r.police_station?.includes('Colombo') ? 'CAM-02 • OUTER CIRCULAR EXPY KM 12.2' : 'CAM-01 • TRAFFIC RADAR'),
-    evidenceImage: '/speed_cam_vehicle.png',
+    camera: r.police_station?.includes('Southern') ? 'CAM-07 • SOUTHERN EXPY KM 68.4' : (r.police_station?.includes('Colombo') ? 'CAM-02 • OUTER CIRCULAR EXPY KM 12.2' : (r.camera_id ? `${r.camera_id.toUpperCase()} • TRAFFIC RADAR` : 'CAM-01 • TRAFFIC RADAR')),
+    cameraId: r.camera_id || null,
+    trackingId: r.tracking_id || null,
+    evidenceImage: r.evidence_image_url || '/speed_cam_vehicle.png',
+    evidenceImageUrl: r.evidence_image_url || null,
     speedRecorded: speedInt > 0 ? `${speedInt} km/h` : 'N/A',
     speedLimit: `${limitInt} km/h`,
     capturedSpeed: speedInt,
     postedLimit: limitInt,
     excessSpeed: excess,
     radarCalibration: 'Doppler 77GHz',
-    anprMatch: '99.8%',
+    anprMatch: hasPlate ? `${Math.round(plateConf > 1 ? plateConf : plateConf * 100)}%` : 'N/A',
     officerBadge: r.officer_badge || 'PO-8819 (Sgt. Jayawardena)',
     receiptNo: r.receipt_no || null,
     paidAt: r.paid_at || null,
-    vehicleDetails: {
-      make: r.make || 'Toyota',
-      model: r.model || 'Aqua Hybrid',
-      year: r.year || 2020,
-      type: r.type || 'Hybrid EV',
-      ownerNic: r.owner_nic || '200012345678'
-    }
+    registryMatch: Boolean(r.make || r.owner_nic),
+    vehicleDetails: (r.make || r.model) ? {
+      make: r.make,
+      model: r.model,
+      year: r.year,
+      type: r.type,
+      ownerNic: r.owner_nic
+    } : null
   };
 }
 
@@ -193,6 +206,10 @@ export const fineService = {
             f.amount,
             f.demerit_points,
             f.vehicle_plate,
+            f.plate_raw_text,
+            f.plate_confidence,
+            f.plate_status,
+            f.plate_crop_url,
             f.status,
             f.due_days,
             f.location_coords,
@@ -202,28 +219,33 @@ export const fineService = {
             f.officer_badge,
             f.receipt_no,
             f.paid_at,
+            f.camera_id,
+            f.tracking_id,
+            f.evidence_image_url,
             v.make,
             v.model,
             v.year,
             v.type,
             v.owner_nic
           FROM fines f
-          LEFT JOIN vehicles v ON UPPER(REPLACE(REPLACE(v.plate, '-', ''), ' ', '')) = UPPER(REPLACE(REPLACE(f.vehicle_plate, '-', ''), ' ', ''))
+          LEFT JOIN vehicles v ON (
+            f.vehicle_plate IS NOT NULL 
+            AND f.vehicle_plate != 'UNREAD'
+            AND UPPER(REPLACE(REPLACE(v.plate, '-', ''), ' ', '')) = UPPER(REPLACE(REPLACE(f.vehicle_plate, '-', ''), ' ', ''))
+          )
         `;
 
         const params = [];
         if (vehiclePlate) {
           const cleanPlate = vehiclePlate.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-          query += ` WHERE UPPER(REPLACE(REPLACE(f.vehicle_plate, '-', ''), ' ', '')) = $1 OR UPPER(REPLACE(REPLACE(f.vehicle_plate, '-', ''), ' ', '')) LIKE '%' || $1`;
+          query += ` WHERE f.vehicle_plate IS NOT NULL AND (UPPER(REPLACE(REPLACE(f.vehicle_plate, '-', ''), ' ', '')) = $1 OR UPPER(REPLACE(REPLACE(f.vehicle_plate, '-', ''), ' ', '')) LIKE '%' || $1)`;
           params.push(cleanPlate);
         }
 
         query += ` ORDER BY f.date DESC, f.id DESC;`;
 
         const result = await pool.query(query, params);
-        if (result.rows.length > 0) {
-          return result.rows.map(formatFineRow);
-        }
+        return result.rows.map(formatFineRow);
       } catch (err) {
         console.warn('DB Fines query fallback:', err.message);
       }
@@ -231,7 +253,7 @@ export const fineService = {
 
     if (vehiclePlate) {
       const cleanPlate = vehiclePlate.replace(/[^A-Z0-9]/g, '').toUpperCase();
-      return fallbackFines.filter(f => f.vehiclePlate.replace(/[^A-Z0-9]/g, '').toUpperCase().includes(cleanPlate));
+      return fallbackFines.filter(f => f.vehiclePlate && f.vehiclePlate.replace(/[^A-Z0-9]/g, '').toUpperCase().includes(cleanPlate));
     }
 
     return fallbackFines;
@@ -256,6 +278,10 @@ export const fineService = {
             f.amount,
             f.demerit_points,
             f.vehicle_plate,
+            f.plate_raw_text,
+            f.plate_confidence,
+            f.plate_status,
+            f.plate_crop_url,
             f.status,
             f.due_days,
             f.location_coords,
@@ -265,13 +291,20 @@ export const fineService = {
             f.officer_badge,
             f.receipt_no,
             f.paid_at,
+            f.camera_id,
+            f.tracking_id,
+            f.evidence_image_url,
             v.make,
             v.model,
             v.year,
             v.type,
             v.owner_nic
           FROM fines f
-          LEFT JOIN vehicles v ON UPPER(REPLACE(REPLACE(v.plate, '-', ''), ' ', '')) = UPPER(REPLACE(REPLACE(f.vehicle_plate, '-', ''), ' ', ''))
+          LEFT JOIN vehicles v ON (
+            f.vehicle_plate IS NOT NULL 
+            AND f.vehicle_plate != 'UNREAD'
+            AND UPPER(REPLACE(REPLACE(v.plate, '-', ''), ' ', '')) = UPPER(REPLACE(REPLACE(f.vehicle_plate, '-', ''), ' ', ''))
+          )
           WHERE f.id = $1 OR f.id = $2
           LIMIT 1;
         `;
@@ -291,83 +324,230 @@ export const fineService = {
    * Record a new high-speed violation (from AI camera radar detection)
    */
   async recordViolation({
-    vehiclePlate = 'WP CAB-4521',
-    speedDetected = 128,
-    speedLimit = 100,
-    location = 'Southern Expressway KM 68.4',
-    locationCoords = '6.0329° N, 80.2168° E (Km 68.4 Southern Expressway)',
-    policeStation = 'Southern Expressway Division',
-    camera = 'CAM-07 • SOUTHERN EXPY KM 68.4',
-    officerBadge = 'PO-8819 (Sgt. Jayawardena)',
-    amount = 3850,
-    demeritPoints = 3
+    id,
+    violationId,
+    violation_id,
+    vehiclePlate,
+    plate,
+    plate_raw_text,
+    plateRawText,
+    plate_confidence,
+    plateConfidence,
+    plate_status,
+    plateStatus,
+    plate_crop_url,
+    plateCropUrl,
+    speedDetected,
+    speedRecorded,
+    speed_kmh,
+    speedLimit,
+    limit_kmh,
+    cameraId,
+    camera_id,
+    trackingId,
+    track_id,
+    lane,
+    location,
+    locationCoords,
+    location_coords,
+    policeStation,
+    police_station,
+    camera,
+    officerBadge,
+    amount,
+    demeritPoints,
+    evidenceImageUrl,
+    evidence_image_url,
+    timestamp,
+    date
   }) {
-    const cleanPlate = vehiclePlate.trim().toUpperCase();
-    const speed = parseInt(speedDetected, 10) || 128;
-    const limit = parseInt(speedLimit, 10) || 100;
-    const excess = speed - limit;
-    const fineId = `TX-${Math.floor(10000 + Math.random() * 90000)}`;
+    const rawId = (id || violationId || violation_id || '').trim();
+    const fineId = rawId || `TX-${Math.floor(10000 + Math.random() * 90000)}`;
 
-    const newFine = {
-      id: fineId,
-      policeStation,
-      offence: `Speeding — ${speed} km/h in ${limit} km/h zone (+${excess} km/h excess)`,
-      date: new Date().toISOString().split('T')[0],
-      dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
-      amount: parseInt(amount, 10) || 3850,
-      demeritPoints: parseInt(demeritPoints, 10) || 3,
-      vehiclePlate: cleanPlate,
-      status: 'Unpaid',
-      dueDays: 14,
-      locationCoords,
-      evidenceImage: true,
-      speedRecorded: `${speed} km/h`,
-      speedLimit: `${limit} km/h`,
-      officerBadge
-    };
+    // Handle real plate or unread status without fabricating fake numbers
+    const rawPlateInput = (plate || vehiclePlate || '').trim();
+    let finalPlate = null;
+    let finalStatus = (plate_status || plateStatus || '').trim().toUpperCase();
+
+    if (rawPlateInput && rawPlateInput !== 'UNREAD' && rawPlateInput !== 'null') {
+      finalPlate = rawPlateInput.toUpperCase();
+      if (!finalStatus) finalStatus = 'VALID';
+    } else {
+      finalPlate = null;
+      finalStatus = 'UNREAD';
+    }
+
+    const rawConf = plate_confidence !== undefined ? plate_confidence : plateConfidence;
+    const finalConfidence = rawConf !== undefined && rawConf !== null ? parseFloat(rawConf) : (finalPlate ? 0.95 : 0.0);
+    const rawText = (plate_raw_text || plateRawText || finalPlate || '').trim() || null;
+    const cropUrl = plate_crop_url || plateCropUrl || null;
+
+    const speed = Math.round(parseFloat(speed_kmh || speedRecorded || speedDetected || 100));
+    const limit = Math.round(parseFloat(limit_kmh || speedLimit || 100));
+    const excess = Math.max(0, speed - limit);
+    const camId = (cameraId || camera_id || (camera ? camera.split('•')[0].trim() : 'cam_01')).toLowerCase();
+    const trackId = trackingId !== undefined ? String(trackingId) : (track_id !== undefined ? String(track_id) : null);
+    const evidenceUrl = evidenceImageUrl || evidence_image_url || null;
+
+    let computedAmount = parseInt(amount, 10);
+    let computedDemerits = parseInt(demeritPoints, 10);
+    if (isNaN(computedAmount)) {
+      computedAmount = excess >= 40 ? 7500 : (excess >= 20 ? 5000 : 3850);
+    }
+    if (isNaN(computedDemerits)) {
+      computedDemerits = excess >= 40 ? 6 : (excess >= 20 ? 4 : 3);
+    }
+
+    const station = policeStation || police_station || `Expressway Police Division (${camId.toUpperCase()})`;
+    const coords = locationCoords || location_coords || location || 'Southern Expressway KM 68.4';
+    const badge = officerBadge || `AI Radar Surveillance (${camId.toUpperCase()})`;
+    const recordDate = date ? new Date(date).toISOString().split('T')[0] : (timestamp ? new Date(timestamp).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
+    const dueDateStr = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    const offenceText = `Speeding — ${speed} km/h in ${limit} km/h zone (+${excess} km/h excess)${lane ? ` [${lane}]` : ''}`;
+
+    let registryVehicle = null;
+    let isRegistryMatch = false;
 
     if (isPostgresConnected()) {
       try {
-        await pool.query(
-          `INSERT INTO fines (id, police_station, offence, date, due_date, amount, demerit_points, vehicle_plate, status, due_days, location_coords, evidence_image, speed_recorded, speed_limit, officer_badge)
-           VALUES ($1, $2, $3, CURRENT_DATE, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-           ON CONFLICT (id) DO NOTHING;`,
-          [
-            newFine.id,
-            newFine.policeStation,
-            newFine.offence,
-            newFine.dueDate,
-            newFine.amount,
-            newFine.demeritPoints,
-            newFine.vehiclePlate,
-            newFine.status,
-            newFine.dueDays,
-            newFine.locationCoords,
-            newFine.evidenceImage,
-            newFine.speedRecorded,
-            newFine.speedLimit,
-            newFine.officerBadge
-          ]
-        );
+        // Genuine vehicle registry lookup if a plate exists
+        if (finalPlate) {
+          const cleanLookup = finalPlate.replace(/[^A-Z0-9]/g, '');
+          const regRes = await pool.query(
+            `SELECT make, model, year, type, owner_nic FROM vehicles 
+             WHERE UPPER(REPLACE(REPLACE(plate, '-', ''), ' ', '')) = $1 LIMIT 1`,
+            [cleanLookup]
+          );
+          if (regRes.rows.length > 0) {
+            registryVehicle = regRes.rows[0];
+            isRegistryMatch = true;
+          }
+        }
+
+        const query = `
+          INSERT INTO fines (
+            id, police_station, offence, date, due_date, amount, demerit_points,
+            vehicle_plate, plate_raw_text, plate_confidence, plate_status, plate_crop_url,
+            status, due_days, location_coords, evidence_image,
+            speed_recorded, speed_limit, officer_badge, camera_id, tracking_id, evidence_image_url
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
+          ON CONFLICT (id) DO UPDATE SET
+            status = EXCLUDED.status,
+            vehicle_plate = COALESCE(EXCLUDED.vehicle_plate, fines.vehicle_plate),
+            plate_raw_text = COALESCE(EXCLUDED.plate_raw_text, fines.plate_raw_text),
+            plate_confidence = COALESCE(EXCLUDED.plate_confidence, fines.plate_confidence),
+            plate_status = COALESCE(EXCLUDED.plate_status, fines.plate_status),
+            plate_crop_url = COALESCE(EXCLUDED.plate_crop_url, fines.plate_crop_url)
+          RETURNING *;
+        `;
+        const params = [
+          fineId,
+          station,
+          offenceText,
+          recordDate,
+          dueDateStr,
+          computedAmount,
+          computedDemerits,
+          finalPlate, // Nullable, authentic
+          rawText,
+          finalConfidence,
+          finalStatus,
+          cropUrl,
+          'Unpaid',
+          14,
+          coords,
+          true,
+          `${speed} km/h`,
+          `${limit} km/h`,
+          badge,
+          camId,
+          trackId,
+          evidenceUrl
+        ];
+        const res = await pool.query(query, params);
+        if (res.rows.length > 0) {
+          const rowData = res.rows[0];
+          if (registryVehicle) {
+            rowData.make = registryVehicle.make;
+            rowData.model = registryVehicle.model;
+            rowData.year = registryVehicle.year;
+            rowData.type = registryVehicle.type;
+            rowData.owner_nic = registryVehicle.owner_nic;
+          }
+          const savedFine = formatFineRow(rowData);
+
+          // Persist operational notification into PostgreSQL
+          try {
+            const { notificationService } = await import('./notification.service.js');
+            const notifTitle = finalPlate ? `Speed Violation: ${finalPlate}` : `Speed Violation: Unread Plate`;
+            const notifMsg = finalPlate
+              ? `Vehicle ${finalPlate} detected at ${speed} km/h (Limit: ${limit} km/h) on ${camId.toUpperCase()} • ${station}.`
+              : `Vehicle detected at ${speed} km/h (Limit: ${limit} km/h) with unread plate on ${camId.toUpperCase()} • ${station}.`;
+
+            await notificationService.createNotification({
+              eventId: fineId,
+              type: 'violation',
+              severity: excess >= 30 ? 'critical' : (excess >= 15 ? 'high' : 'medium'),
+              title: notifTitle,
+              message: notifMsg,
+              cameraId: camId,
+              referenceId: fineId,
+              targetTab: 'Reports',
+              metadata: {
+                speed,
+                limit,
+                excess,
+                plate: finalPlate,
+                plateStatus: finalStatus,
+                plateConfidence: finalConfidence,
+                plateCropUrl: cropUrl,
+                registryMatch: isRegistryMatch,
+                fineId: fineId,
+                trackingId: trackId
+              }
+            });
+          } catch (notifErr) {
+            console.warn('⚠️ [FINE SERVICE] Notification creation warning:', notifErr.message);
+          }
+
+          return savedFine;
+        }
       } catch (err) {
         console.warn('DB recordViolation fallback:', err.message);
       }
     }
 
-    fallbackFines.unshift(formatFineRow({
-      ...newFine,
-      speed_recorded: newFine.speedRecorded,
-      speed_limit: newFine.speedLimit,
-      due_date: newFine.dueDate,
-      police_station: newFine.policeStation,
-      vehicle_plate: newFine.vehiclePlate,
-      demerit_points: newFine.demeritPoints,
-      location_coords: newFine.locationCoords,
-      officer_badge: newFine.officerBadge
-    }));
+    const fallbackRecord = {
+      id: fineId,
+      policeStation: station,
+      offence: offenceText,
+      date: recordDate,
+      dueDate: dueDateStr,
+      amount: computedAmount,
+      demeritPoints: computedDemerits,
+      vehiclePlate: finalPlate || 'UNREAD',
+      plateRawText: rawText,
+      plateConfidence: finalConfidence,
+      plateStatus: finalStatus,
+      plateCropUrl: cropUrl,
+      status: 'Unpaid',
+      dueDays: 14,
+      locationCoords: coords,
+      evidenceImage: true,
+      speedRecorded: `${speed} km/h`,
+      speedLimit: `${limit} km/h`,
+      officerBadge: badge,
+      cameraId: camId,
+      trackingId: trackId,
+      evidenceImageUrl: evidenceUrl
+    };
 
-    return newFine;
+    fallbackFines.unshift(formatFineRow(fallbackRecord));
+
+    return fallbackRecord;
   },
+
 
   /**
    * Pay a fine

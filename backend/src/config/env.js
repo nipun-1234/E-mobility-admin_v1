@@ -60,6 +60,7 @@ export const config = {
   // Security & Encryption
   encryptionKey: process.env.ENCRYPTION_KEY || 'default_aes256_encryption_key_32_bytes_placeholder!',
   emailHashKey: process.env.EMAIL_HASH_KEY || 'default_hmac_sha256_email_hash_key_placeholder!',
+  aiServiceApiKey: process.env.AI_SERVICE_API_KEY || 'ai_sec_key_emobility_2026_dev_v1',
 
   // Default Super Admin Seed Config
   superAdminEmail: process.env.SUPER_ADMIN_EMAIL || 'emobilitysuperadmin@gmail.com',

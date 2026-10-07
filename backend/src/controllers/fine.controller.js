@@ -35,11 +35,35 @@ export const fineController = {
    */
   async recordViolation(req, res, next) {
     try {
-      const violationData = req.body;
+      const violationData = req.body || {};
+      const speed = parseFloat(violationData.speed_kmh || violationData.speedRecorded || violationData.speedDetected || 0);
+      const limit = parseFloat(violationData.limit_kmh || violationData.speedLimit || 0);
+
+      if (isNaN(speed) || speed <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid speed measurement provided.'
+        });
+      }
+
+      if (isNaN(limit) || limit <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid speed limit provided.'
+        });
+      }
+
+      if (speed <= limit) {
+        return res.status(400).json({
+          success: false,
+          message: `Speed ${speed} km/h does not exceed posted limit of ${limit} km/h. No violation created.`
+        });
+      }
+
       const result = await fineService.recordViolation(violationData);
       return res.status(201).json({
         success: true,
-        message: 'High-speed violation logged and ticket linked to vehicle successfully.',
+        message: 'High-speed violation logged and citation persisted successfully.',
         fine: result
       });
     } catch (err) {

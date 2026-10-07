@@ -6,8 +6,10 @@ import disputeRoutes from './dispute.routes.js';
 import stationRoutes from './station.routes.js';
 import statsRoutes from './stats.routes.js';
 import cameraRoutes from './camera.routes.js';
+import rbacRoutes from './rbac.routes.js';
+import notificationRoutes from './notification.routes.js';
 import { authController } from '../controllers/auth.controller.js';
-import { requireAuth, requireRole } from '../middleware/auth.middleware.js';
+import { requireAuth, requireRole, requirePermission } from '../middleware/auth.middleware.js';
 import { isPostgresConnected } from '../config/db.js';
 
 const apiRouter = Router();
@@ -25,7 +27,9 @@ apiRouter.get('/health', (req, res) => {
 
 // ─── Feature Routes ───────────────────────────────────────────────────────────
 apiRouter.use('/auth', authRoutes);
-apiRouter.get('/users', requireAuth, requireRole('admin', 'super_admin'), authController.getUsers);
+apiRouter.use('/rbac', rbacRoutes);
+apiRouter.use('/notifications', notificationRoutes);
+apiRouter.get('/users', requireAuth, requirePermission('users.manage'), authController.getUsers);
 apiRouter.use('/vehicles', vehicleRoutes);
 apiRouter.use('/fines', fineRoutes);
 apiRouter.use('/disputes', disputeRoutes);
@@ -34,4 +38,6 @@ apiRouter.use('/cameras', cameraRoutes);
 apiRouter.use('/', statsRoutes);
 
 export default apiRouter;
+
+
 

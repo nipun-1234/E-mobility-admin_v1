@@ -22,6 +22,7 @@ from collections import defaultdict, deque
 import cv2
 import numpy as np
 from ultralytics import YOLO
+from anpr_engine import anpr_engine
 
 class TrafficMonitor:
     def __init__(self, video_path='expressway_traffic.mp4', model_path='yolov8n.pt', speed_limit=100, camera_id='cam_01'):
@@ -54,14 +55,7 @@ class TrafficMonitor:
         # Frame subsampling & caching state
         self.frame_count = 0
         self.last_tracked_objects = []
-        
-        # Sri Lankan sample plates from registry
-        self.registry_plates = [
-            'WP CAB-4521', 'SP KY-3390', 'WP BBC-112', 'NW KY-9080', 'CP AB-1234',
-            'WP CAB-4522', 'SP KY-3391', 'WP BBC-113', 'NW KY-9081', 'CP AB-1235',
-            'WP CAB-4523', 'SP KY-3392', 'WP BBC-114', 'NW KY-9082', 'CP AB-1236',
-            'WP CBM-4821', 'CP BEG-1092', 'WP BEH-7741', 'SP CAD-2091', 'WP CBA-9912'
-        ]
+        self.on_violation_callback = None
         
         # Initialize video capture
         self.cap = None
@@ -174,29 +168,32 @@ class TrafficMonitor:
             return None
 
     def create_plate_callout(self, frame, box, plate_text, width=230, height=90):
-        """Extracts and enhances the real license plate crop from the vehicle"""
+        """Extracts real plate crop from vehicle and displays genuine OCR status"""
         x1, y1, x2, y2 = box
         bw = x2 - x1
         bh = y2 - y1
         h, w, _ = frame.shape
         
-        py1 = max(0, y1 + int(bh * 0.58))
+        py1 = max(0, y1 + int(bh * 0.50))
         py2 = min(h, y1 + int(bh * 0.98))
-        px1 = max(0, x1 + int(bw * 0.15))
-        px2 = min(w, x1 + int(bw * 0.85))
+        px1 = max(0, x1 + int(bw * 0.10))
+        px2 = min(w, x1 + int(bw * 0.90))
         
         if py2 > py1 + 8 and px2 > px1 + 8:
             real_crop = frame[py1:py2, px1:px2]
             enlarged = cv2.resize(real_crop, (width, height), interpolation=cv2.INTER_CUBIC)
             
-            # Draw enhanced Sri Lankan Plate banner
-            pw, ph = int(width * 0.76), int(height * 0.40)
+            # Draw real ANPR status banner
+            pw, ph = int(width * 0.85), int(height * 0.38)
             px = (width - pw) // 2
-            py = int(height * 0.48)
+            py = int(height * 0.52)
             cv2.rectangle(enlarged, (px, py), (px + pw, py + ph), (242, 245, 248), -1)
             cv2.rectangle(enlarged, (px, py), (px + pw, py + ph), (18, 18, 18), 2)
-            cv2.putText(enlarged, plate_text, (px + 6, py + ph - 8), 
-                        cv2.FONT_HERSHEY_DUPLEX, 0.58, (12, 12, 15), 2, cv2.LINE_AA)
+
+            display_str = plate_text if plate_text else "ANPR: Scanning..."
+            text_col = (12, 12, 15) if plate_text else (100, 100, 100)
+            cv2.putText(enlarged, display_str, (px + 6, py + ph - 8), 
+                        cv2.FONT_HERSHEY_DUPLEX, 0.50, text_col, 1, cv2.LINE_AA)
             return enlarged
         else:
             return self.create_synthetic_plate(plate_text, width, height)
@@ -215,7 +212,9 @@ class TrafficMonitor:
         cv2.rectangle(crop, (px1, py1), (px2, py2), (240, 242, 246), -1)
         cv2.rectangle(crop, (px1, py1), (px2, py2), (25, 25, 25), 2)
         font = cv2.FONT_HERSHEY_DUPLEX
-        cv2.putText(crop, plate_text, (px1 + 8, py1 + 28), font, 0.65, (15, 15, 20), 2, cv2.LINE_AA)
+        display_str = plate_text if plate_text else "ANPR: Scanning..."
+        text_col = (15, 15, 20) if plate_text else (120, 120, 120)
+        cv2.putText(crop, display_str, (px1 + 8, py1 + 28), font, 0.55, text_col, 1, cv2.LINE_AA)
         return crop
 
     def process_frame(self, frame, current_time=None):
@@ -284,13 +283,22 @@ class TrafficMonitor:
                 gx_m, gy_m = self.image_to_ground(foot)
                 lane_code, lane_label = self.get_lane_for_ground_x(gx_m)
 
+                # Submit vehicle crop for asynchronous non-blocking OCR
+                v_crop = frame[max(0, y1):min(h, y2), max(0, x1):min(w, x2)]
+                anpr_engine.submit_vehicle_crop(self.camera_id, track_id, v_crop, self.frame_count)
+
+                # Retrieve real recognized plate (Multi-Frame Consensus)
+                plate_info = anpr_engine.get_track_plate(track_id)
+
                 # Initialize or update track state
                 if track_id not in self.tracks:
-                    plate_str = self.registry_plates[(track_id - 1) % len(self.registry_plates)]
                     self.tracks[track_id] = {
                         'id': track_id,
                         'class_name': self.class_names.get(cls_id, 'Vehicle'),
-                        'plate': plate_str,
+                        'plate': plate_info.get('plate'),
+                        'plate_status': plate_info.get('status', 'UNREAD'),
+                        'plate_confidence': plate_info.get('confidence', 0.0),
+                        'plate_raw_text': plate_info.get('raw_text', ''),
                         'first_seen': current_time,
                         'last_seen': current_time,
                         'speed': 90.0,
@@ -303,6 +311,11 @@ class TrafficMonitor:
                         'is_speeding': False,
                         'active_incident': None
                     }
+                else:
+                    self.tracks[track_id]['plate'] = plate_info.get('plate')
+                    self.tracks[track_id]['plate_status'] = plate_info.get('status', 'UNREAD')
+                    self.tracks[track_id]['plate_confidence'] = plate_info.get('confidence', 0.0)
+                    self.tracks[track_id]['plate_raw_text'] = plate_info.get('raw_text', '')
 
                 t_data = self.tracks[track_id]
                 t_data['last_seen'] = current_time
@@ -354,7 +367,8 @@ class TrafficMonitor:
                                 'severity': 'CRITICAL',
                                 'lane': lane_label,
                                 'duration_s': round(stopped_duration, 1),
-                                'plate': t_data['plate'],
+                                'plate': t_data.get('plate'),
+                                'plate_status': t_data.get('plate_status', 'UNREAD'),
                                 'timestamp': time.strftime("%Y-%m-%d %H:%M:%S")
                             })
                 else:
@@ -376,7 +390,8 @@ class TrafficMonitor:
                             'severity': 'EMERGENCY',
                             'lane': lane_label,
                             'speed_kmh': round(current_speed, 1),
-                            'plate': t_data['plate'],
+                            'plate': t_data.get('plate'),
+                            'plate_status': t_data.get('plate_status', 'UNREAD'),
                             'timestamp': time.strftime("%Y-%m-%d %H:%M:%S")
                         })
                 else:
@@ -390,16 +405,27 @@ class TrafficMonitor:
                 if is_speeding and len(sp_history) >= 8 and (min(sp_history) > self.speed_limit):
                     if track_id not in self.logged_violations:
                         self.logged_violations.add(track_id)
-                        self.violations_log.append({
+                        vio_record = {
                             'camera_id': self.camera_id,
                             'track_id': track_id,
-                            'plate': t_data['plate'],
+                            'plate': t_data.get('plate'),
+                            'plate_status': t_data.get('plate_status', 'UNREAD'),
+                            'plate_confidence': t_data.get('plate_confidence', 0.0),
+                            'plate_raw_text': t_data.get('plate_raw_text', ''),
+                            'plate_crop': plate_info.get('crop_img'),
+                            'vehicle_box': (x1, y1, x2, y2),
                             'vehicle_class': t_data['class_name'],
                             'speed_kmh': round(current_speed, 1),
                             'limit_kmh': self.speed_limit,
                             'lane': lane_label,
                             'timestamp': time.strftime("%Y-%m-%d %H:%M:%S")
-                        })
+                        }
+                        self.violations_log.append(vio_record)
+                        if self.on_violation_callback:
+                            try:
+                                self.on_violation_callback(vio_record, frame)
+                            except Exception:
+                                pass
 
                 tracked_objects.append({
                     'id': track_id,
@@ -408,7 +434,9 @@ class TrafficMonitor:
                     'cy': cy,
                     'area': area,
                     'speed': current_speed,
-                    'plate': t_data['plate'],
+                    'plate': t_data.get('plate'),
+                    'plate_status': t_data.get('plate_status', 'UNREAD'),
+                    'plate_confidence': t_data.get('plate_confidence', 0.0),
                     'lane': lane_label,
                     'is_speeding': is_speeding,
                     'is_stopped': t_data['is_stopped'],

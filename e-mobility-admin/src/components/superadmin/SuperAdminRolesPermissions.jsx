@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { rbacService } from '../../services/rbac.service';
 import {
   Shield,
   ShieldCheck,
@@ -26,185 +27,10 @@ import {
   Sliders,
   Sparkles,
   Layers,
-  FileText
+  FileText,
+  Loader2,
+  RefreshCw
 } from 'lucide-react';
-
-const INITIAL_ROLES = [
-  {
-    id: 1,
-    name: 'Super Admin',
-    type: 'System',
-    icon: 'Crown',
-    color: 'purple',
-    description: 'Full system access. Can manage all modules and configurations.',
-    status: 'Active',
-    code: 'ROLE_SUPER_ADMIN',
-    usersCount: 2,
-    clearance: 'Tier 1 (Root / Kernel)',
-    scope: 'Global Infrastructure & All Corridors',
-    mfaEnforced: true,
-    sessionTimeout: '15 Minutes',
-    createdAt: '2026-01-01',
-    permissions: [
-      { id: 1, module: 'Dashboard', access: 'Full Access', level: 'full' },
-      { id: 2, module: 'Admins', access: 'Full Access', level: 'full' },
-      { id: 3, module: 'Login Photo Audit', access: 'Full Access', level: 'full' },
-      { id: 4, module: 'Users', access: 'Full Access', level: 'full' },
-      { id: 5, module: 'Roles & Permissions', access: 'Full Access', level: 'full' },
-      { id: 6, module: 'Vehicles', access: 'Full Access', level: 'full' },
-      { id: 7, module: 'ANPR & CCTV', access: 'Full Access', level: 'full' },
-      { id: 8, module: 'Toll & Revenue', access: 'Full Access', level: 'full' },
-      { id: 9, module: 'Reports', access: 'Full Access', level: 'full' },
-      { id: 10, module: 'Audit Logs', access: 'Full Access', level: 'full' },
-      { id: 11, module: 'Settings', access: 'Full Access', level: 'full' }
-    ]
-  },
-  {
-    id: 2,
-    name: 'Admin',
-    type: 'System',
-    icon: 'Shield',
-    color: 'emerald',
-    description: 'Operational administration access to assigned modules.',
-    status: 'Active',
-    code: 'ROLE_ADMIN',
-    usersCount: 8,
-    clearance: 'Tier 2 (High Clearance)',
-    scope: 'Assigned Highway Corridors',
-    mfaEnforced: true,
-    sessionTimeout: '30 Minutes',
-    createdAt: '2026-01-10',
-    permissions: [
-      { id: 1, module: 'Dashboard', access: 'Full Access', level: 'full' },
-      { id: 2, module: 'Admins', access: 'Full Access', level: 'full' },
-      { id: 3, module: 'Login Photo Audit', access: 'Full Access', level: 'full' },
-      { id: 4, module: 'Users', access: 'Full Access', level: 'full' },
-      { id: 5, module: 'Roles & Permissions', access: 'Full Access', level: 'full' },
-      { id: 6, module: 'Vehicles', access: 'Full Access', level: 'full' },
-      { id: 7, module: 'ANPR & CCTV', access: 'Full Access', level: 'full' },
-      { id: 8, module: 'Toll & Revenue', access: 'Full Access', level: 'full' },
-      { id: 9, module: 'Reports', access: 'Full Access', level: 'full' },
-      { id: 10, module: 'Audit Logs', access: 'Read Only', level: 'read' },
-      { id: 11, module: 'Settings', access: 'Restricted', level: 'none' }
-    ]
-  },
-  {
-    id: 3,
-    name: 'Operator',
-    type: 'System',
-    icon: 'Users',
-    color: 'blue',
-    description: 'Daily operations (ANPR, toll, vehicle verification).',
-    status: 'Active',
-    code: 'ROLE_OPERATOR',
-    usersCount: 24,
-    clearance: 'Tier 3 (Field Operations)',
-    scope: 'Toll Plazas & ANPR Monitoring Desks',
-    mfaEnforced: false,
-    sessionTimeout: '60 Minutes',
-    createdAt: '2026-02-01',
-    permissions: [
-      { id: 1, module: 'Dashboard', access: 'Read Only', level: 'read' },
-      { id: 2, module: 'Admins', access: 'Restricted', level: 'none' },
-      { id: 3, module: 'Login Photo Audit', access: 'Restricted', level: 'none' },
-      { id: 4, module: 'Users', access: 'Read Only', level: 'read' },
-      { id: 5, module: 'Roles & Permissions', access: 'Restricted', level: 'none' },
-      { id: 6, module: 'Vehicles', access: 'Full Access', level: 'full' },
-      { id: 7, module: 'ANPR & CCTV', access: 'Full Access', level: 'full' },
-      { id: 8, module: 'Toll & Revenue', access: 'Full Access', level: 'full' },
-      { id: 9, module: 'Reports', access: 'Read Only', level: 'read' },
-      { id: 10, module: 'Audit Logs', access: 'Restricted', level: 'none' },
-      { id: 11, module: 'Settings', access: 'Restricted', level: 'none' }
-    ]
-  },
-  {
-    id: 4,
-    name: 'Inspector',
-    type: 'System',
-    icon: 'Search',
-    color: 'amber',
-    description: 'Field inspection and verification access.',
-    status: 'Active',
-    code: 'ROLE_INSPECTOR',
-    usersCount: 15,
-    clearance: 'Tier 3 (Enforcement Officer)',
-    scope: 'Mobile Patrol & Speed Verification Stations',
-    mfaEnforced: true,
-    sessionTimeout: '45 Minutes',
-    createdAt: '2026-02-15',
-    permissions: [
-      { id: 1, module: 'Dashboard', access: 'Read Only', level: 'read' },
-      { id: 2, module: 'Admins', access: 'Restricted', level: 'none' },
-      { id: 3, module: 'Login Photo Audit', access: 'Restricted', level: 'none' },
-      { id: 4, module: 'Users', access: 'Read Only', level: 'read' },
-      { id: 5, module: 'Roles & Permissions', access: 'Restricted', level: 'none' },
-      { id: 6, module: 'Vehicles', access: 'Full Access', level: 'full' },
-      { id: 7, module: 'ANPR & CCTV', access: 'Full Access', level: 'full' },
-      { id: 8, module: 'Toll & Revenue', access: 'Read Only', level: 'read' },
-      { id: 9, module: 'Reports', access: 'Full Access', level: 'full' },
-      { id: 10, module: 'Audit Logs', access: 'Restricted', level: 'none' },
-      { id: 11, module: 'Settings', access: 'Restricted', level: 'none' }
-    ]
-  },
-  {
-    id: 5,
-    name: 'Citizen',
-    type: 'System',
-    icon: 'Car',
-    color: 'cyan',
-    description: 'Public user access (limited features).',
-    status: 'Active',
-    code: 'ROLE_CITIZEN',
-    usersCount: 1420,
-    clearance: 'Tier 4 (Public Portal)',
-    scope: 'Personal Vehicle Registry & e-Pass Wallet',
-    mfaEnforced: false,
-    sessionTimeout: '120 Minutes',
-    createdAt: '2026-01-01',
-    permissions: [
-      { id: 1, module: 'Dashboard', access: 'Limited Access', level: 'limited' },
-      { id: 2, module: 'Admins', access: 'Restricted', level: 'none' },
-      { id: 3, module: 'Login Photo Audit', access: 'Restricted', level: 'none' },
-      { id: 4, module: 'Users', access: 'Restricted', level: 'none' },
-      { id: 5, module: 'Roles & Permissions', access: 'Restricted', level: 'none' },
-      { id: 6, module: 'Vehicles', access: 'Limited Access', level: 'limited' },
-      { id: 7, module: 'ANPR & CCTV', access: 'Restricted', level: 'none' },
-      { id: 8, module: 'Toll & Revenue', access: 'Limited Access', level: 'limited' },
-      { id: 9, module: 'Reports', access: 'Restricted', level: 'none' },
-      { id: 10, module: 'Audit Logs', access: 'Restricted', level: 'none' },
-      { id: 11, module: 'Settings', access: 'Limited Access', level: 'limited' }
-    ]
-  },
-  {
-    id: 6,
-    name: 'Custom Role 1',
-    type: 'Custom',
-    icon: 'Settings',
-    color: 'rose',
-    description: 'Custom role for regional operators.',
-    status: 'Active',
-    code: 'ROLE_CUSTOM_REGIONAL_OPS',
-    usersCount: 5,
-    clearance: 'Tier 3 (Regional Custom)',
-    scope: 'Southern Expressway Zone 2',
-    mfaEnforced: true,
-    sessionTimeout: '30 Minutes',
-    createdAt: '2026-08-04',
-    permissions: [
-      { id: 1, module: 'Dashboard', access: 'Read Only', level: 'read' },
-      { id: 2, module: 'Admins', access: 'Restricted', level: 'none' },
-      { id: 3, module: 'Login Photo Audit', access: 'Restricted', level: 'none' },
-      { id: 4, module: 'Users', access: 'Read Only', level: 'read' },
-      { id: 5, module: 'Roles & Permissions', access: 'Restricted', level: 'none' },
-      { id: 6, module: 'Vehicles', access: 'Full Access', level: 'full' },
-      { id: 7, module: 'ANPR & CCTV', access: 'Full Access', level: 'full' },
-      { id: 8, module: 'Toll & Revenue', access: 'Read Only', level: 'read' },
-      { id: 9, module: 'Reports', access: 'Read Only', level: 'read' },
-      { id: 10, module: 'Audit Logs', access: 'Restricted', level: 'none' },
-      { id: 11, module: 'Settings', access: 'Restricted', level: 'none' }
-    ]
-  }
-];
 
 const MODULE_LIST = [
   'Dashboard',
@@ -221,7 +47,9 @@ const MODULE_LIST = [
 ];
 
 export default function SuperAdminRolesPermissions({ isDarkMode, showToast }) {
-  const [roles, setRoles] = useState(INITIAL_ROLES);
+  const [roles, setRoles] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [selectedRoleId, setSelectedRoleId] = useState(1);
   const [activeDetailsTab, setActiveDetailsTab] = useState('Permissions'); // 'Permissions' | 'Information'
   const [searchQuery, setSearchQuery] = useState('');
@@ -250,6 +78,29 @@ export default function SuperAdminRolesPermissions({ isDarkMode, showToast }) {
       level: 'read'
     }))
   });
+
+  // Load roles from backend PostgreSQL API
+  const loadRoles = async (maintainSelectedId = null) => {
+    try {
+      setIsLoading(true);
+      const data = await rbacService.fetchRoles();
+      setRoles(data);
+      if (maintainSelectedId) {
+        setSelectedRoleId(maintainSelectedId);
+      } else if (data.length > 0 && (!selectedRoleId || !data.find(r => r.id === selectedRoleId))) {
+        setSelectedRoleId(data[0].id);
+      }
+    } catch (err) {
+      console.error('❌ Failed to load roles:', err);
+      showToast?.(err.response?.data?.message || 'Failed to load roles from database.', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadRoles();
+  }, []);
 
   // Currently selected role
   const selectedRole = useMemo(() => {
@@ -348,68 +199,77 @@ export default function SuperAdminRolesPermissions({ isDarkMode, showToast }) {
     setShowRoleDetails(true);
   };
 
-  const handleToggleStatus = (roleId) => {
-    setRoles((prev) =>
-      prev.map((r) =>
-        r.id === roleId
-          ? { ...r, status: r.status === 'Active' ? 'Inactive' : 'Active' }
-          : r
-      )
-    );
-    setActiveActionMenuId(null);
-    showToast?.('Role status updated successfully.', 'success');
+  const handleToggleStatus = async (roleId) => {
+    const targetRole = roles.find((r) => r.id === roleId);
+    if (!targetRole) return;
+    const newStatus = targetRole.status === 'Active' ? 'Inactive' : 'Active';
+    try {
+      await rbacService.updateRole(roleId, { status: newStatus });
+      await loadRoles(selectedRoleId);
+      setActiveActionMenuId(null);
+      showToast?.(`Role status updated to ${newStatus}.`, 'success');
+    } catch (err) {
+      showToast?.(err.response?.data?.message || 'Failed to update status.', 'error');
+    }
   };
 
-  const handleDeleteRole = (roleId) => {
+  const handleDeleteRole = async (roleId) => {
     const roleToDelete = roles.find((r) => r.id === roleId);
     if (roleToDelete?.type === 'System') {
       showToast?.('System roles cannot be deleted.', 'error');
       return;
     }
     if (window.confirm(`Are you sure you want to delete role "${roleToDelete?.name}"?`)) {
-      setRoles((prev) => prev.filter((r) => r.id !== roleId));
-      if (selectedRoleId === roleId) {
-        setSelectedRoleId(1);
+      try {
+        await rbacService.deleteRole(roleId);
+        showToast?.(`Role "${roleToDelete?.name}" deleted successfully.`, 'success');
+        if (selectedRoleId === roleId) {
+          setSelectedRoleId(1);
+        }
+        await loadRoles(1);
+        setActiveActionMenuId(null);
+      } catch (err) {
+        showToast?.(err.response?.data?.message || 'Failed to delete role.', 'error');
       }
-      setActiveActionMenuId(null);
-      showToast?.(`Role "${roleToDelete?.name}" deleted successfully.`, 'success');
     }
   };
 
-  const handleCreateRoleSubmit = (e) => {
+  const handleCreateRoleSubmit = async (e) => {
     e.preventDefault();
     if (!newRoleForm.name.trim()) {
       showToast?.('Please enter a valid role name.', 'error');
       return;
     }
-    const newId = roles.length ? Math.max(...roles.map((r) => r.id)) + 1 : 1;
-    const newRole = {
-      ...newRoleForm,
-      id: newId,
-      code: `ROLE_${newRoleForm.name.toUpperCase().replace(/\\s+/g, '_')}`,
-      usersCount: 0,
-      clearance: 'Tier 3 (Custom Role)',
-      scope: 'Custom Defined Scope',
-      mfaEnforced: false,
-      sessionTimeout: '30 Minutes',
-      createdAt: new Date().toISOString().split('T')[0]
-    };
-    setRoles((prev) => [...prev, newRole]);
-    setSelectedRoleId(newId);
-    setShowRoleDetails(true);
-    setIsCreateModalOpen(false);
-    showToast?.(`New role "${newRole.name}" created successfully.`, 'success');
+    try {
+      setIsSaving(true);
+      const created = await rbacService.createRole(newRoleForm);
+      showToast?.(`New role "${newRoleForm.name}" created and saved to database.`, 'success');
+      setIsCreateModalOpen(false);
+      await loadRoles(created.role?.id);
+    } catch (err) {
+      showToast?.(err.response?.data?.message || 'Failed to create role.', 'error');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleEditRoleSave = (e) => {
+  const handleEditRoleSave = async (e) => {
     e.preventDefault();
     if (!editingRole) return;
-    setRoles((prev) =>
-      prev.map((r) => (r.id === editingRole.id ? editingRole : r))
-    );
-    setIsEditModalOpen(false);
-    showToast?.(`Role "${editingRole.name}" updated successfully.`, 'success');
+    try {
+      setIsSaving(true);
+      await rbacService.updateRolePermissions(editingRole.id, editingRole.permissions);
+      await rbacService.updateRole(editingRole.id, { description: editingRole.description });
+      showToast?.(`Permissions for "${editingRole.name}" successfully saved to PostgreSQL.`, 'success');
+      setIsEditModalOpen(false);
+      await loadRoles(editingRole.id);
+    } catch (err) {
+      showToast?.(err.response?.data?.message || 'Failed to save permissions to database.', 'error');
+    } finally {
+      setIsSaving(false);
+    }
   };
+
 
   return (
     <div className="space-y-5 animate-in fade-in duration-200">
@@ -432,13 +292,29 @@ export default function SuperAdminRolesPermissions({ isDarkMode, showToast }) {
           </p>
         </div>
 
-        <button
-          onClick={() => setIsCreateModalOpen(true)}
-          className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-emerald-500/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
-        >
-          <Plus className="w-4 h-4 stroke-[2.5]" />
-          <span>Create Role</span>
-        </button>
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={() => loadRoles(selectedRoleId)}
+            disabled={isLoading}
+            className={`p-2 rounded-xl border transition-all flex items-center gap-1.5 text-xs font-semibold ${
+              isDarkMode
+                ? 'border-slate-800 bg-slate-900/60 hover:bg-slate-800 text-slate-300'
+                : 'border-slate-200 bg-slate-100 hover:bg-slate-200 text-slate-700'
+            }`}
+            title="Reload from PostgreSQL"
+          >
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-emerald-400' : ''}`} />
+            <span className="hidden sm:inline">Refresh</span>
+          </button>
+
+          <button
+            onClick={() => setIsCreateModalOpen(true)}
+            className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-emerald-500/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+          >
+            <Plus className="w-4 h-4 stroke-[2.5]" />
+            <span>Create Role</span>
+          </button>
+        </div>
       </div>
 
       {/* -------------------- 2. DUAL PANE LAYOUT -------------------- */}
@@ -540,7 +416,14 @@ export default function SuperAdminRolesPermissions({ isDarkMode, showToast }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/40 text-xs font-medium">
-                {filteredRoles.length === 0 ? (
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={5} className="py-12 text-center text-slate-400">
+                      <Loader2 className="w-8 h-8 mx-auto text-emerald-400 animate-spin mb-2" />
+                      <p className="font-mono text-xs">Loading roles and permissions from PostgreSQL...</p>
+                    </td>
+                  </tr>
+                ) : filteredRoles.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="py-12 text-center text-slate-500">
                       <Shield className="w-8 h-8 mx-auto text-slate-600 mb-2 opacity-60" />
@@ -549,6 +432,7 @@ export default function SuperAdminRolesPermissions({ isDarkMode, showToast }) {
                   </tr>
                 ) : (
                   filteredRoles.map((role, idx) => {
+
                     const isSelected = selectedRole?.id === role.id;
 
                     return (
@@ -1106,6 +990,7 @@ export default function SuperAdminRolesPermissions({ isDarkMode, showToast }) {
               <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
                 <button
                   type="button"
+                  disabled={isSaving}
                   onClick={() => setIsCreateModalOpen(false)}
                   className="px-4 py-2 rounded-xl border border-slate-700 hover:bg-slate-800 text-slate-300 font-semibold"
                 >
@@ -1113,9 +998,11 @@ export default function SuperAdminRolesPermissions({ isDarkMode, showToast }) {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold shadow-lg shadow-emerald-500/20"
+                  disabled={isSaving}
+                  className="px-5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold shadow-lg shadow-emerald-500/20 flex items-center gap-1.5"
                 >
-                  Save & Create Role
+                  {isSaving && <Loader2 className="w-4 h-4 animate-spin" />}
+                  <span>{isSaving ? 'Creating...' : 'Save & Create Role'}</span>
                 </button>
               </div>
             </form>
@@ -1211,6 +1098,7 @@ export default function SuperAdminRolesPermissions({ isDarkMode, showToast }) {
               <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
                 <button
                   type="button"
+                  disabled={isSaving}
                   onClick={() => setIsEditModalOpen(false)}
                   className="px-4 py-2 rounded-xl border border-slate-700 hover:bg-slate-800 text-slate-300 font-semibold"
                 >
@@ -1218,9 +1106,11 @@ export default function SuperAdminRolesPermissions({ isDarkMode, showToast }) {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold shadow-lg shadow-cyan-500/20"
+                  disabled={isSaving}
+                  className="px-5 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold shadow-lg shadow-cyan-500/20 flex items-center gap-1.5"
                 >
-                  Save Changes
+                  {isSaving && <Loader2 className="w-4 h-4 animate-spin" />}
+                  <span>{isSaving ? 'Saving...' : 'Save Changes'}</span>
                 </button>
               </div>
             </form>
@@ -1230,3 +1120,4 @@ export default function SuperAdminRolesPermissions({ isDarkMode, showToast }) {
     </div>
   );
 }
+

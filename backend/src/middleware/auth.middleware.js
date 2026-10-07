@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { config } from '../config/env.js';
 
@@ -85,4 +86,80 @@ export function requireRole(...roles) {
 
 // Alias — same as authenticateToken but named conventionally
 export const requireAuth = authenticateToken;
+
+// Service-to-Service authentication guard for AI Vision server
+export function requireAiServiceAuth(req, res, next) {
+  const serviceKey = req.headers['x-ai-service-key'] || req.headers['x-api-key'];
+  const configuredKey = config.aiServiceApiKey;
+
+  if (serviceKey && configuredKey) {
+    try {
+      const keyBuf = Buffer.from(String(serviceKey).trim());
+      const expectedBuf = Buffer.from(String(configuredKey).trim());
+      if (keyBuf.length === expectedBuf.length && crypto.timingSafeEqual(keyBuf, expectedBuf)) {
+        req.isAiService = true;
+        return next();
+      }
+    } catch {
+      // Continue to check JWT
+    }
+  }
+
+  // Also accept authenticated Admin/Super Admin Bearer token
+  const authHeader = req.headers['authorization'];
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.split(' ')[1];
+    try {
+      const decoded = jwt.verify(token, config.jwtSecret);
+      if (decoded.role === 'admin' || decoded.role === 'super_admin') {
+        req.user = decoded;
+        return next();
+      }
+    } catch {}
+  }
+
+  return res.status(401).json({
+    success: false,
+    message: 'Unauthorized: Valid X-AI-Service-Key or Admin Bearer token required.'
+  });
+}
+
+// Real database-backed RBAC permission middleware
+export function requirePermission(permissionKey, minLevel = 'read') {
+  return async (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required. Please log in.'
+      });
+    }
+
+    const userRole = req.user.role;
+
+    // Super Admin root has unconditional full authority
+    if (userRole === 'super_admin' || userRole === 'ROLE_SUPER_ADMIN') {
+      return next();
+    }
+
+    try {
+      // Dynamic import to prevent circular dependency
+      const { rbacService } = await import('../services/rbac.service.js');
+      const allowed = await rbacService.hasPermission(userRole, permissionKey, minLevel);
+      if (!allowed) {
+        return res.status(403).json({
+          success: false,
+          message: `Forbidden: Missing required permission '${permissionKey}'.`
+        });
+      }
+      next();
+    } catch (err) {
+      console.error('❌ [AUTH MIDDLEWARE] Permission check error:', err);
+      return res.status(500).json({
+        success: false,
+        message: 'Internal authorization evaluation error.'
+      });
+    }
+  };
+}
+
 

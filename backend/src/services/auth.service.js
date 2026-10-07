@@ -273,6 +273,17 @@ export const authService = {
           const isMatch = verifyPassword(password, user.password);
 
           if (!isMatch) {
+            await auditService.recordLoginAudit({
+              userId: user.id,
+              userName: user.name,
+              userEmail: plainEmail,
+              role: userRole,
+              ipAddress,
+              deviceInfo: userAgent,
+              loginStatus: 'FAILED',
+              verificationStatus: 'INVALID_CREDENTIALS',
+              photoFilename: null
+            });
             throw new Error('Invalid email or password.');
           }
 
@@ -325,6 +336,18 @@ export const authService = {
             { expiresIn: config.jwtExpiresIn }
           );
 
+          await auditService.recordLoginAudit({
+            userId: user.id,
+            userName: user.name,
+            userEmail: plainEmail,
+            role: userRole,
+            ipAddress,
+            deviceInfo: userAgent,
+            loginStatus: 'SUCCESS',
+            verificationStatus: 'CREDENTIALS_VERIFIED',
+            photoFilename: null
+          });
+
           return {
             token,
             user: {
@@ -347,6 +370,17 @@ export const authService = {
         if (ownerRes.rows.length > 0) {
           const owner = ownerRes.rows[0];
           if (owner.password && !verifyPassword(password, owner.password)) {
+            await auditService.recordLoginAudit({
+              userId: owner.owner_id,
+              userName: owner.full_name,
+              userEmail: decryptEmail(owner.email),
+              role: 'user',
+              ipAddress,
+              deviceInfo: userAgent,
+              loginStatus: 'FAILED',
+              verificationStatus: 'INVALID_CREDENTIALS',
+              photoFilename: null
+            });
             throw new Error('Invalid email or password.');
           }
 
@@ -356,6 +390,18 @@ export const authService = {
             config.jwtSecret,
             { expiresIn: config.jwtExpiresIn }
           );
+
+          await auditService.recordLoginAudit({
+            userId: owner.owner_id,
+            userName: owner.full_name,
+            userEmail: plainEmail,
+            role: 'user',
+            ipAddress,
+            deviceInfo: userAgent,
+            loginStatus: 'SUCCESS',
+            verificationStatus: 'CREDENTIALS_VERIFIED',
+            photoFilename: null
+          });
 
           return {
             token,
@@ -391,6 +437,17 @@ export const authService = {
       const isMatch = verifyPassword(password, existing.password);
 
       if (!isMatch) {
+        await auditService.recordLoginAudit({
+          userId: existing.id,
+          userName: existing.name,
+          userEmail: decryptEmail(existing.email),
+          role: existing.role || 'admin',
+          ipAddress,
+          deviceInfo: userAgent,
+          loginStatus: 'FAILED',
+          verificationStatus: 'INVALID_CREDENTIALS',
+          photoFilename: null
+        });
         throw new Error('Invalid email or password.');
       }
 
@@ -437,6 +494,18 @@ export const authService = {
         { expiresIn: config.jwtExpiresIn }
       );
 
+      await auditService.recordLoginAudit({
+        userId: existing.id,
+        userName: existing.name,
+        userEmail: plainEmail,
+        role: userRole,
+        ipAddress,
+        deviceInfo: userAgent,
+        loginStatus: 'SUCCESS',
+        verificationStatus: 'CREDENTIALS_VERIFIED',
+        photoFilename: null
+      });
+
       return {
         token,
         user: {
@@ -448,6 +517,17 @@ export const authService = {
     }
 
     // User not found in any source: generic error for security
+    await auditService.recordLoginAudit({
+      userId: null,
+      userName: cleanIdentifier,
+      userEmail: cleanIdentifier.includes('@') ? cleanIdentifier : `${cleanIdentifier}@unknown.lk`,
+      role: 'unknown',
+      ipAddress,
+      deviceInfo: userAgent,
+      loginStatus: 'FAILED',
+      verificationStatus: 'USER_NOT_FOUND',
+      photoFilename: null
+    });
     throw new Error('Invalid email or password.');
   },
 
